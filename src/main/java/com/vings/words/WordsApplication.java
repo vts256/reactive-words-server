@@ -5,10 +5,10 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.ComponentScan;
 
 @SpringBootApplication
-@ComponentScan(basePackages = "com.pryshchepa.words")
-public class WordsServerApplication {
+@ComponentScan(basePackages = {"com.vings.words"})
+public class WordsApplication {
 
     public static void main(String[] args) {
-        SpringApplication.run(WordsServerApplication.class, args);
+        SpringApplication.run(WordsApplication.class, args);
     }
 }
