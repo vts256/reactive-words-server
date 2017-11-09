@@ -3,7 +3,7 @@ version '1.0.0'
 
 apply plugin: 'java'
 
-sourceCompatibility = 9.0
+sourceCompatibility = 1.8
 
 repositories {
     mavenCentral()
@@ -13,6 +13,9 @@ repositories {
 dependencies {
     compile group: 'org.springframework.boot', name: 'spring-boot-starter-webflux', version: '2.0.0.M5'
     compile group: 'org.springframework.boot', name: 'spring-boot-starter-web', version: '2.0.0.M5'
+    compile group: 'org.springframework.data', name: 'spring-data-cassandra', version: '2.0.1.RELEASE'
+    compile group: 'org.projectlombok', name: 'lombok', version: '1.16.18'
+    compile group: 'com.fasterxml.jackson.core', name: 'jackson-databind', version: '2.9.2'
     testCompile group: 'org.springframework.boot', name: 'spring-boot-starter-test', version: '2.0.0.M5'
     testCompile group: 'org.junit.jupiter', name: 'junit-jupiter-api', version: '5.0.1'
 }

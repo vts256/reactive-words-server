@@ -35,6 +35,6 @@ public class WordsRoutes {
     private RouterFunction<ServerResponse> dictionaryRoutes() {
         return nest(path("/dictionary"),
                 nest(accept(MediaType.APPLICATION_JSON),
-                        route(GET("/{user}/{category}"), dictionaryHandler::getWordsByCategory)));
+                        route(GET("/{id}"), dictionaryHandler::getWord)));
     }
 }
