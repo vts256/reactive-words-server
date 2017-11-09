@@ -32,4 +32,11 @@ class WordsServletTest {
                 .expectStatus().isOk()
                 .expectBody(String.class).isEqualTo("Hello, from reactive handler;)");
     }
+
+    @Test
+    void receiveHelloFromDictionaryUrl() throws Exception {
+        client.get().uri("/dictionary/user/category").exchange()
+                .expectStatus().isOk()
+                .expectBody(String.class).isEqualTo("This is from dictionary");
+    }
 }
