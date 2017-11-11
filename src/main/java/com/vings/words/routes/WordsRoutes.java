@@ -34,6 +34,7 @@ public class WordsRoutes {
         return nest(path("/dictionary"),
                 nest(accept(MediaType.APPLICATION_JSON, MediaType.APPLICATION_FORM_URLENCODED),
                         route(GET("/{id}"), dictionaryHandler::get))
-                        .andRoute(POST("/"), dictionaryHandler::save));
+                        .andRoute(POST("/"), dictionaryHandler::save)
+                        .andRoute(DELETE("/{id}"), dictionaryHandler::delete));
     }
 }

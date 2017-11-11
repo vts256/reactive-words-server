@@ -9,6 +9,8 @@ import reactor.core.publisher.Mono;
 
 import java.util.UUID;
 
+import static org.springframework.web.reactive.function.server.ServerResponse.badRequest;
+import static org.springframework.web.reactive.function.server.ServerResponse.noContent;
 import static org.springframework.web.reactive.function.server.ServerResponse.ok;
 
 @Component
@@ -23,15 +25,20 @@ public class DictionaryHandler {
 
     public Mono<ServerResponse> get(ServerRequest servletRequest) {
         String id = servletRequest.pathVariable(ID);
-        Mono<Word> monoWord = wordsRepository.findById(UUID.fromString(id));
-
-        return ok().body(monoWord, Word.class);
+        return ok().body(wordsRepository.findById(UUID.fromString(id)), Word.class)
+                .switchIfEmpty(noContent().build());
     }
 
     public Mono<ServerResponse> save(ServerRequest serverRequest) {
         return serverRequest.bodyToMono(Word.class)
                 .filter(word -> word.getWord() != null && word.getTranslation() != null)
                 .flatMap(word -> ok().body(wordsRepository.save(word), Word.class))
-                .switchIfEmpty(ServerResponse.badRequest().build());
+                .switchIfEmpty(badRequest().body(Mono.just("Parameters wasn't specified correctly"), String.class));
+    }
+
+    public Mono<ServerResponse> delete(ServerRequest serverRequest) {
+        String id = serverRequest.pathVariable(ID);
+        wordsRepository.deleteById(UUID.fromString(id));
+        return ok().build();
     }
 }
