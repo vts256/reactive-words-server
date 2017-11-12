@@ -9,9 +9,7 @@ import reactor.core.publisher.Mono;
 
 import java.util.UUID;
 
-import static org.springframework.web.reactive.function.server.ServerResponse.badRequest;
-import static org.springframework.web.reactive.function.server.ServerResponse.noContent;
-import static org.springframework.web.reactive.function.server.ServerResponse.ok;
+import static org.springframework.web.reactive.function.server.ServerResponse.*;
 
 @Component
 public class DictionaryHandler {
@@ -24,8 +22,9 @@ public class DictionaryHandler {
     }
 
     public Mono<ServerResponse> get(ServerRequest servletRequest) {
-        String id = servletRequest.pathVariable(ID);
-        return ok().body(wordsRepository.findById(UUID.fromString(id)), Word.class)
+        UUID id = UUID.fromString(servletRequest.pathVariable(ID));
+        return wordsRepository.findById(id)
+                .flatMap(word -> ok().body(Mono.just(word), Word.class))
                 .switchIfEmpty(noContent().build());
     }
 
@@ -37,8 +36,7 @@ public class DictionaryHandler {
     }
 
     public Mono<ServerResponse> delete(ServerRequest serverRequest) {
-        String id = serverRequest.pathVariable(ID);
-        wordsRepository.deleteById(UUID.fromString(id));
-        return ok().build();
+        UUID id = UUID.fromString(serverRequest.pathVariable(ID));
+        return wordsRepository.deleteById(id).flatMap(data -> ok().build());
     }
 }
