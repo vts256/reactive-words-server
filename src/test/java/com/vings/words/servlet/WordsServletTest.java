@@ -74,7 +74,6 @@ class WordsServletTest {
     void getWordByInvalidUUID() {
 
         int notValidUUID = 1;
-
         client.get().uri("/dictionary/{0}", notValidUUID).exchange()
                 .expectStatus().isBadRequest();
     }
@@ -107,7 +106,6 @@ class WordsServletTest {
 
     @Test
     void deleteWord() {
-
         wordsRepository.save(first).block();
 
         client.delete().uri("/dictionary/{0}", first.getId()).exchange().expectStatus().isOk();
