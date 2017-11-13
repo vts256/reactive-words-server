@@ -15,6 +15,8 @@ import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import org.springframework.web.reactive.function.BodyInserters;
 
+import java.util.Arrays;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 @ExtendWith(SpringExtension.class)
@@ -24,7 +26,8 @@ class WordsServletTest {
     @LocalServerPort
     private int port;
 
-    private Word word = new Word("Reactive", "Це реактив");
+    private Word first = new Word("Cool", "Reactive", "Реактив");
+    private Word second = new Word("Cool", "Core", "Основа");
 
     @Autowired
     private WordsRepository wordsRepository;
@@ -52,23 +55,23 @@ class WordsServletTest {
     }
 
     @Test
-    void getFromEmptyDictionary() {
+    void getWordByIdFromEmptyDictionary() {
         client.get().uri("/dictionary/" + UUIDs.timeBased()).exchange()
-                .expectStatus().isNoContent();
+                .expectStatus().isNotFound();
     }
 
     @Test
-    void getWordById() throws Exception {
+    void getWordById() {
 
-        wordsRepository.save(word).block();
+        wordsRepository.save(first).block();
 
-        client.get().uri("/dictionary/{0}", word.getId()).exchange()
+        client.get().uri("/dictionary/{0}", first.getId()).exchange()
                 .expectStatus().isOk()
-                .expectBody(Word.class).isEqualTo(word);
+                .expectBody(Word.class).isEqualTo(first);
     }
 
     @Test
-    void getWordByInvalidUUID() throws Exception {
+    void getWordByInvalidUUID() {
 
         int notValidUUID = 1;
 
@@ -77,19 +80,37 @@ class WordsServletTest {
     }
 
     @Test
-    void saveWord() throws Exception {
+    void getWordsByCategory() {
+        wordsRepository.saveAll(Arrays.asList(first, second)).subscribe();
 
-        client.post().uri("/dictionary/").body(BodyInserters.fromObject(word)).exchange()
+        String category = "Cool";
+        client.get().uri("/dictionary/category/{0}", category).exchange()
                 .expectStatus().isOk()
-                .expectBody(Word.class).isEqualTo(word);
+                .expectBodyList(Word.class).hasSize(2).contains(first, second);
+    }
+
+
+    @Test
+    void getWordsByCategoryFromEmptyDictionary() {
+
+        String category = "notExisted";
+        client.get().uri("/dictionary/category/{0}", category).exchange()
+                .expectStatus().isNotFound();
     }
 
     @Test
-    void deleteWord() throws Exception {
+    void saveWord() {
+        client.post().uri("/dictionary/").body(BodyInserters.fromObject(first)).exchange()
+                .expectStatus().isOk()
+                .expectBody(Word.class).isEqualTo(first);
+    }
 
-        wordsRepository.save(word).block();
+    @Test
+    void deleteWord() {
 
-        client.delete().uri("/dictionary/{0}", word.getId()).exchange().expectStatus().isOk();
+        wordsRepository.save(first).block();
+
+        client.delete().uri("/dictionary/{0}", first.getId()).exchange().expectStatus().isOk();
 
         assertThat(wordsRepository.count().block()).isEqualTo(0);
     }

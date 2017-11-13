@@ -33,8 +33,10 @@ public class WordsRoutes {
     private RouterFunction<ServerResponse> dictionaryRoutes() {
         return nest(path("/dictionary"),
                 nest(accept(MediaType.APPLICATION_JSON, MediaType.APPLICATION_FORM_URLENCODED),
-                        route(GET("/{id}"), dictionaryHandler::get))
+                        route(GET("/{id}"), dictionaryHandler::getWordById))
+                        .andRoute(GET("/category/{category}"), dictionaryHandler::getWordsByCategory)
                         .andRoute(POST("/"), dictionaryHandler::save)
-                        .andRoute(DELETE("/{id}"), dictionaryHandler::delete));
+                        .andRoute(DELETE("/{id}"), dictionaryHandler::delete)
+        );
     }
 }

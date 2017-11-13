@@ -16,15 +16,18 @@ public class Word {
 
     private String word;
 
+    private String category;
+
     private String translation;
 
     public Word() {
         this.id = UUIDs.timeBased();
     }
 
-    public Word(String word, String translation) {
+    public Word(String category, String word, String translation) {
         this();
         this.word = word;
+        this.category = category;
         this.translation = translation;
     }
 }
