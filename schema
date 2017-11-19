@@ -1,0 +1,7 @@
+CREATE TABLE Word(
+user text,
+category text,
+word text,
+translation set<text>,
+answers int,
+PRIMARY KEY((user, category), word));
