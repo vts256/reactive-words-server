@@ -24,7 +24,6 @@ public class DictionaryHandler {
     private static final String WORD = "word";
     private static final String LEARNED = "learned";
     private static final String TRANSLATION = "translation";
-    private static final int CORRECT_ANSWERS = 99;
 
     private WordsRepository wordsRepository;
 
@@ -49,7 +48,7 @@ public class DictionaryHandler {
         String user = serverRequest.pathVariable(USER);
         String category = serverRequest.pathVariable(CATEGORY);
         boolean learned = Boolean.valueOf(serverRequest.pathVariable(LEARNED));
-        Flux<Word> words = wordsRepository.findByUserAndCategory(user, category).filter(word -> learned ? word.getAnswers() > CORRECT_ANSWERS : word.getAnswers() < CORRECT_ANSWERS);
+        Flux<Word> words = wordsRepository.findByUserAndCategory(user, category).filter(word -> word.isLearned() == learned);
         return words.collectList().flatMap(data -> {
             if (data.isEmpty()) {
                 return notFound().build();
@@ -86,7 +85,7 @@ public class DictionaryHandler {
                 ObjectMapper objectMapper = new ObjectMapper();
                 JsonNode jsonNode = objectMapper.readTree(data);
                 JsonNode translation = jsonNode.get(TRANSLATION);
-                if(translation == null) {
+                if (translation == null) {
                     throw new IllegalArgumentException("translation isn't specified");
                 }
                 return translation.textValue();

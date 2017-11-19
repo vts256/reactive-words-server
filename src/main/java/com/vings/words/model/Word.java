@@ -10,6 +10,8 @@ import java.util.Set;
 @JsonInclude
 public class Word {
 
+    private static final int ANSWERS_ON_LEARNED_WORD = 100;
+
     @Id
     private String user;
 
@@ -30,5 +32,9 @@ public class Word {
         this.word = word;
         this.answers = answers;
         this.translation = translation;
+    }
+
+    public boolean isLearned() {
+        return answers >= ANSWERS_ON_LEARNED_WORD;
     }
 }
