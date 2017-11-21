@@ -27,19 +27,19 @@ public class WordsRoutes {
     }
 
     private RouterFunction<ServerResponse> baseRoutes() {
-        return route(GET("/"), request -> ok().body(fromObject("Hello, from reactive handler;)")));//
+        return route(GET("/"), request -> ok().body(fromObject("Hello, from reactive handler;)")));
     }
 
     private RouterFunction<ServerResponse> dictionaryRoutes() {
         return nest(path("/dictionary"),
                 nest(accept(MediaType.APPLICATION_JSON, MediaType.APPLICATION_FORM_URLENCODED),
-                        route(GET("/{user}/{category}"), dictionaryHandler::getWords)//
-                        .andRoute(GET("/{user}/{category}/{learned}"), dictionaryHandler::getWordsByLearnedFilter)//
-                        .andRoute(POST("/{user}"), dictionaryHandler::save)//
+                        route(GET("/{user}/{category}"), dictionaryHandler::getWords)
+                        .andRoute(GET("/{user}/{category}/{learned}"), dictionaryHandler::getWordsByLearnedFilter)
+                        .andRoute(POST("/{user}"), dictionaryHandler::save)
                         .andRoute(PATCH("/{user}/{category}"), dictionaryHandler::updateCategory)
-                        .andRoute(PATCH("/{user}/{category}/{word}"), dictionaryHandler::updateWord)//
-                        .andRoute(DELETE("/{user}/{category}"), dictionaryHandler::deleteCategory)//
-                        .andRoute(DELETE("/{user}/{category}/{word}"), dictionaryHandler::deleteWord)//
+                        .andRoute(PATCH("/{user}/{category}/{word}"), dictionaryHandler::updateWord)
+                        .andRoute(DELETE("/{user}/{category}"), dictionaryHandler::deleteCategory)
+                        .andRoute(DELETE("/{user}/{category}/{word}"), dictionaryHandler::deleteWord)
                         .andRoute(DELETE("/{user}/{category}/{word}/{translation}"), dictionaryHandler::deleteTranslation)
         ));
     }

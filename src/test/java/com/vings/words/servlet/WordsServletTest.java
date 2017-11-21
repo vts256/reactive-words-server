@@ -30,7 +30,7 @@ class WordsServletTest {
     private String category2 = "Huge";
     private Word first = new Word(user, category1, "Reactive", 16, new HashSet<>(Arrays.asList("Реактив")));
     private Word second = new Word(user, category1, "Core", 100, new HashSet<>(Arrays.asList("Основа")));
-    private Word third = new Word(user, category2, "Tango", 95, new HashSet<>(Arrays.asList("Танго")));
+    private Word third = new Word(user, category2, "Tango", 95, new HashSet<>(Arrays.asList("Танго", "Супер")));
 
     @Autowired
     private WordsRepository wordsRepository;
@@ -160,6 +160,32 @@ class WordsServletTest {
 
         StepVerifier.create(wordsRepository.findByUserAndCategoryAndWord(user, first.getCategory(), first.getWord()))
                 .expectNextMatches(data -> new HashSet<>(Arrays.asList("Реактив")).equals(data.getTranslation())).verifyComplete();
+    }
+
+    @Test
+    void deleteTranslation() {
+        wordsRepository.save(third).block();
+
+        String translation = "Супер";
+        client.delete().uri("/dictionary/{0}/{1}/{2}/{3}", third.getUser(), third.getCategory(), third.getWord(), translation)
+                .exchange()
+                .expectStatus().isOk();
+
+        StepVerifier.create(wordsRepository.findByUserAndCategoryAndWord(user, third.getCategory(), third.getWord()))
+                .expectNextMatches(data -> new HashSet<>(Arrays.asList("Танго")).equals(data.getTranslation())).verifyComplete();
+    }
+
+    @Test
+    void deleteNotExistingTranslation() {
+        wordsRepository.save(third).block();
+
+        String translation = "NotExisting";
+        client.delete().uri("/dictionary/{0}/{1}/{2}/{3}", third.getUser(), third.getCategory(), third.getWord(), translation)
+                .exchange()
+                .expectStatus().isOk();
+
+        StepVerifier.create(wordsRepository.findByUserAndCategoryAndWord(user, third.getCategory(), third.getWord()))
+                .expectNext(third).verifyComplete();
     }
 
     @Test

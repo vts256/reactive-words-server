@@ -96,6 +96,8 @@ public class DictionaryHandler {
     }
 
     public Mono<ServerResponse> updateCategory(ServerRequest serverRequest) {
+        String user = serverRequest.pathVariable(USER);
+        String category = serverRequest.pathVariable(CATEGORY);
         return Mono.empty();
     }
 
@@ -112,6 +114,10 @@ public class DictionaryHandler {
     }
 
     public Mono<ServerResponse> deleteTranslation(ServerRequest serverRequest) {
-        return Mono.empty();
+        String user = serverRequest.pathVariable(USER);
+        String category = serverRequest.pathVariable(CATEGORY);
+        String word = serverRequest.pathVariable(WORD);
+        String translation = serverRequest.pathVariable(TRANSLATION);
+        return wordsRepository.deleteTranslation(user, category, word, new HashSet<>(Arrays.asList(translation))).then(ok().build());
     }
 }
