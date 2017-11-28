@@ -68,7 +68,6 @@ public class DictionaryHandler {
     public Mono<ServerResponse> deleteCategory(ServerRequest serverRequest) {
         String user = serverRequest.pathVariable(USER);
         String category = serverRequest.pathVariable(CATEGORY);
-        wordsRepository.deleteByUserAndCategory(user, category);
         return wordsRepository.findOneByUserAndCategory(user, category)
                 .flatMap(existingWords ->
                         wordsRepository.deleteByUserAndCategory(user, category)

@@ -2,8 +2,8 @@ package com.vings.words.repository;
 
 import com.vings.words.model.Word;
 import org.springframework.data.cassandra.repository.Query;
+import org.springframework.data.cassandra.repository.ReactiveCassandraRepository;
 import org.springframework.data.repository.query.Param;
-import org.springframework.data.repository.reactive.ReactiveCrudRepository;
 import org.springframework.stereotype.Repository;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -11,7 +11,7 @@ import reactor.core.publisher.Mono;
 import java.util.Set;
 
 @Repository
-public interface WordsRepository extends ReactiveCrudRepository<Word, String> {
+public interface WordsRepository extends ReactiveCassandraRepository<Word, String> {
 
     Flux<Word> findByUserAndCategory(String user, String category);
 

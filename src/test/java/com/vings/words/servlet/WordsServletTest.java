@@ -111,19 +111,6 @@ class WordsServletTest {
     }
 
     @Test
-    void updateCategory() {
-        wordsRepository.save(first).block();
-
-        String newCategory = "New";
-        client.patch().uri("/dictionary/{0}/{1}", first.getUser(), first.getCategory())
-                .body(BodyInserters.fromObject("{\"category\":\"" + newCategory + "\"}")).exchange()
-                .expectStatus().isOk();
-
-        StepVerifier.create(wordsRepository.findByUserAndCategoryAndWord(user, first.getCategory(), first.getWord()))
-                .expectNextMatches(data -> newCategory.equals(data.getCategory())).verifyComplete();
-    }
-
-    @Test
     void updateTranslation() {
 
         wordsRepository.save(first).block();
