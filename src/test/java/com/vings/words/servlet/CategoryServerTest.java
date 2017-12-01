@@ -13,6 +13,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.web.server.LocalServerPort;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.web.reactive.server.WebTestClient;
+import org.springframework.web.reactive.function.BodyInserters;
+import reactor.test.StepVerifier;
 
 import java.util.Arrays;
 
@@ -47,12 +49,21 @@ public class CategoryServerTest {
 
     @Test
     void getWordsByCategory() {
-
         categoryRepository.saveAll(Arrays.asList(firstCategory, secondCategory)).blockLast();
 
         client.get().uri("/category/{0}", user, firstCategory).exchange()
                 .expectStatus().isOk()
                 .expectBodyList(Category.class).hasSize(2).contains(firstCategory, secondCategory);
+    }
+
+    @Test
+    void saveCategory() {
+        client.post().uri("/category/").body(BodyInserters.fromObject(firstCategory)).exchange()
+                .expectStatus().isOk()
+                .expectBody(Category.class).isEqualTo(firstCategory);
+
+        StepVerifier.create(categoryRepository.findByUser(user))
+                .expectNext(firstCategory).expectComplete().verify();
     }
 
 }

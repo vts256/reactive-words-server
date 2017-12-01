@@ -9,8 +9,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import static org.springframework.web.reactive.function.BodyInserters.fromObject;
-import static org.springframework.web.reactive.function.server.ServerResponse.notFound;
-import static org.springframework.web.reactive.function.server.ServerResponse.ok;
+import static org.springframework.web.reactive.function.server.ServerResponse.*;
 
 @Component
 public class CategoryHandler {
@@ -33,5 +32,13 @@ public class CategoryHandler {
                 return ok().body(fromObject(data));
             }
         });
+    }
+
+    public Mono<ServerResponse> createCategory(ServerRequest serverRequest) {
+        return serverRequest.bodyToMono(Category.class)
+                .filter(category -> category.getUser() != null && category.getTitle() != null)
+                .flatMap(category -> ok().body(categoryRepository.save(category), Category.class))
+                .switchIfEmpty(badRequest().body(Mono.just("Parameters isn't specified correctly"), String.class));
+
     }
 }

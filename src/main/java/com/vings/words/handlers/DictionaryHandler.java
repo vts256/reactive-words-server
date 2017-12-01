@@ -94,12 +94,6 @@ public class DictionaryHandler {
         }).flatMap(translation -> ok().body(wordsRepository.updateTranslation(user, category, forWord, new HashSet<>(Arrays.asList(translation))), Word.class));
     }
 
-    public Mono<ServerResponse> updateCategory(ServerRequest serverRequest) {
-        String user = serverRequest.pathVariable(USER);
-        String category = serverRequest.pathVariable(CATEGORY);
-        return Mono.empty();
-    }
-
     public Mono<ServerResponse> deleteWord(ServerRequest serverRequest) {
         String user = serverRequest.pathVariable(USER);
         String category = serverRequest.pathVariable(CATEGORY);
