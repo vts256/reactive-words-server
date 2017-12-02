@@ -60,11 +60,22 @@ class WordsServletTest {
     }
 
     @Test
-    void noContentWhenGetWordsByNotExistingUserAndCategory() {
+    void notFoundWhenGetWordsByNotExistingUserAndCategory() {
+        wordsRepository.saveAll(Arrays.asList(first, second, third)).blockLast();
+
         String notExistingUser = "notExistingUser";
         String notExistingCategory = UUIDs.random().toString();
         client.get().uri("/dictionary/{0}/{1}", notExistingUser, notExistingCategory).exchange()
                 .expectStatus().isNotFound();
+    }
+
+    @Test
+    void badRequestWhenGetWordsByNonValidUUID() {
+        wordsRepository.saveAll(Arrays.asList(first, second, third)).blockLast();
+
+        String category = "category";
+        client.get().uri("/dictionary/{0}/{1}", user, category).exchange()
+                .expectStatus().isBadRequest();
     }
 
     @Test
@@ -84,6 +95,16 @@ class WordsServletTest {
                 .expectStatus().isOk()
                 .expectBodyList(Word.class).hasSize(1).contains(second);
     }
+
+    @Test
+    void badRequestWhenGetLearnedWordsByNonValidUUID() {
+        wordsRepository.saveAll(Arrays.asList(first, second, third)).blockLast();
+
+        String category = "category";
+        client.get().uri("/dictionary/{0}/{1}/{2}", user, category, true).exchange()
+                .expectStatus().isBadRequest();
+    }
+
 
     @Test
     void getNotLearnedWords() {
@@ -139,6 +160,14 @@ class WordsServletTest {
     }
 
     @Test
+    void badRequestWhenUpdateTranslationWithNonValidUUIDCategory() {
+        String category = "category";
+        client.patch().uri("/dictionary/{0}/{1}/{2}", first.getUser(), category, first.getWord())
+                .body(BodyInserters.fromObject("{\"translation\":\"библиотека\"}")).exchange()
+                .expectStatus().isBadRequest();
+    }
+
+    @Test
     void updateTranslationWitDuplicateTranslation() {
 
         wordsRepository.save(first).block();
@@ -162,6 +191,15 @@ class WordsServletTest {
 
         StepVerifier.create(wordsRepository.findByUserAndCategoryAndWord(user, third.getCategory(), third.getWord()))
                 .expectNextMatches(data -> new HashSet<>(Arrays.asList("Танго")).equals(data.getTranslation())).verifyComplete();
+    }
+
+    @Test
+    void badRequestWhenDeleteTranslationWithNonValidUUIDCategory() {
+        String category = "category";
+        String translation = "Супер";
+        client.delete().uri("/dictionary/{0}/{1}/{2}/{3}", third.getUser(), category, third.getWord(), translation)
+                .exchange()
+                .expectStatus().isBadRequest();
     }
 
     @Test
@@ -193,6 +231,12 @@ class WordsServletTest {
     }
 
     @Test
+    void badRequestWhenDeleteCategoryWithNonValidUUID() {
+        String category = "category";
+        client.delete().uri("/dictionary/{0}/{1}", user, category).exchange().expectStatus().isBadRequest();
+    }
+
+    @Test
     void deleteWord() {
         wordsRepository.save(first).block();
 
@@ -200,6 +244,14 @@ class WordsServletTest {
 
         StepVerifier.create(wordsRepository.findByUserAndCategoryAndWord(first.getUser(), first.getCategory(), first.getWord())).expectNextCount(0).verifyComplete();
     }
+
+    @Test
+    void badRequestWhenDeleteWordWithNonValidUUIDCategory() {
+        String category = "category";
+
+        client.delete().uri("/dictionary/{0}/{1}/{2}", first.getUser(), category, first.getWord()).exchange().expectStatus().isBadRequest();
+    }
+
 
     @Test
     void deleteNotExistingWord() {
