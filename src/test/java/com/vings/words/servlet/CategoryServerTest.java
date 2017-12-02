@@ -48,7 +48,7 @@ public class CategoryServerTest {
     }
 
     @Test
-    void getWordsByCategory() {
+    void getUserCategories() {
         categoryRepository.saveAll(Arrays.asList(firstCategory, secondCategory)).blockLast();
 
         client.get().uri("/category/{0}", user, firstCategory).exchange()
@@ -66,4 +66,25 @@ public class CategoryServerTest {
                 .expectNext(firstCategory).expectComplete().verify();
     }
 
+    @Test
+    void deleteCategory() {
+        categoryRepository.saveAll(Arrays.asList(firstCategory, secondCategory)).blockLast();
+
+        client.delete().uri("/category/{0}/{1}", user, firstCategory.getTitle()).exchange()
+                .expectStatus().isOk();
+
+        StepVerifier.create(categoryRepository.findByUser(user))
+                .expectNext(secondCategory).expectComplete().verify();
+    }
+
+    @Test
+    void deleteNonExistingCategory() {
+        categoryRepository.save(secondCategory).block();
+
+        client.delete().uri("/category/{0}/{1}", user, firstCategory.getTitle()).exchange()
+                .expectStatus().isNotFound();
+
+        StepVerifier.create(categoryRepository.findByUser(user))
+                .expectNext(secondCategory).expectComplete().verify();
+    }
 }

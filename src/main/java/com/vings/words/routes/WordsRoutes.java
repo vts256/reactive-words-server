@@ -50,8 +50,9 @@ public class WordsRoutes {
     private RouterFunction<ServerResponse> categoryRoutes() {
         return nest(path("/category"),
                 nest(accept(MediaType.APPLICATION_JSON, MediaType.APPLICATION_FORM_URLENCODED),
-                        route(GET("/{user}"), categoryHandler::getCategories)
-                        .andRoute(POST("/"), categoryHandler::createCategory)
+                        route(GET("/{user}"), categoryHandler::get)
+                        .andRoute(POST("/"), categoryHandler::create)
+                        .andRoute(DELETE("/{user}/{title}"), categoryHandler::delete)
                 ));
     }
 }
