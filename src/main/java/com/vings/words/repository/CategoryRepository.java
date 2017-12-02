@@ -15,7 +15,4 @@ public interface CategoryRepository extends ReactiveCassandraRepository<Category
     Flux<Category> findByUser(String user);
 
     Mono<Category> findByUserAndTitle(String user, String title);
-
-    @Query("DELETE FROM category WHERE user = :user AND title = :title")
-    Mono<Category> deleteByUserAndTitle(@Param("user") String user, @Param("title") String category);
 }

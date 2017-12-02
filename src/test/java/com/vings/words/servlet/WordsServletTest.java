@@ -1,5 +1,6 @@
 package com.vings.words.servlet;
 
+import com.datastax.driver.core.utils.UUIDs;
 import com.vings.words.WordsApplication;
 import com.vings.words.model.Word;
 import com.vings.words.repository.WordsRepository;
@@ -17,6 +18,7 @@ import reactor.test.StepVerifier;
 
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.UUID;
 
 @ExtendWith(SpringExtension.class)
 @SpringBootTest(classes = WordsApplication.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -26,8 +28,8 @@ class WordsServletTest {
     private int port;
 
     private String user = "user1";
-    private String category1 = "Cool";
-    private String category2 = "Huge";
+    private UUID category1 = UUIDs.random();
+    private UUID category2 = UUIDs.random();
     private Word first = new Word(user, category1, "Reactive", 16, new HashSet<>(Arrays.asList("Реактив")));
     private Word second = new Word(user, category1, "Core", 100, new HashSet<>(Arrays.asList("Основа")));
     private Word third = new Word(user, category2, "Tango", 95, new HashSet<>(Arrays.asList("Танго", "Супер")));
@@ -60,7 +62,7 @@ class WordsServletTest {
     @Test
     void noContentWhenGetWordsByNotExistingUserAndCategory() {
         String notExistingUser = "notExistingUser";
-        String notExistingCategory = "notExistingCategory";
+        String notExistingCategory = UUIDs.random().toString();
         client.get().uri("/dictionary/{0}/{1}", notExistingUser, notExistingCategory).exchange()
                 .expectStatus().isNotFound();
     }
@@ -95,7 +97,7 @@ class WordsServletTest {
     @Test
     void getWordsByCategoryFromEmptyDictionary() {
 
-        String category = "notExisted";
+        String category = UUIDs.random().toString();
         client.get().uri("/dictionary/category/{0}", category).exchange()
                 .expectStatus().isNotFound();
     }
@@ -186,7 +188,7 @@ class WordsServletTest {
 
     @Test
     void deleteNotExistingCategory() {
-        String notExistingCategory = "notExistingCategory";
+        String notExistingCategory = UUIDs.random().toString();
         client.delete().uri("/dictionary/{0}/{1}", user, notExistingCategory).exchange().expectStatus().isNotFound();
     }
 

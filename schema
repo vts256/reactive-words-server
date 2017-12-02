@@ -1,6 +1,6 @@
 CREATE TABLE Word(
 user text,
-category text,
+category uuid,
 word text,
 translation set<text>,
 answers int,
@@ -9,5 +9,5 @@ PRIMARY KEY((user, category), word));
 CREATE TABLE Category(
 user text,
 title text,
-id timeuuid,
+id uuid,
 PRIMARY KEY(user, title));

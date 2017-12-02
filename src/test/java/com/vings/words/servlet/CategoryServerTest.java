@@ -30,8 +30,8 @@ public class CategoryServerTest {
     private WebTestClient client;
 
     private String user = "user1";
-    private Category firstCategory = new Category(user, "category1", UUIDs.timeBased());
-    private Category secondCategory = new Category(user, "category2", UUIDs.timeBased());
+    private Category firstCategory = new Category(user, "category1", UUIDs.random());
+    private Category secondCategory = new Category(user, "category2", UUIDs.random());
 
     @BeforeEach
     void setUp() {

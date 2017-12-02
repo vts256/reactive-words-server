@@ -1,5 +1,6 @@
 package com.vings.words.handlers;
 
+import com.datastax.driver.core.utils.UUIDs;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.vings.words.model.Word;
@@ -13,6 +14,7 @@ import reactor.core.publisher.Mono;
 
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.UUID;
 
 import static org.springframework.web.reactive.function.BodyInserters.fromObject;
 import static org.springframework.web.reactive.function.server.ServerResponse.*;
@@ -34,7 +36,7 @@ public class DictionaryHandler {
     public Mono<ServerResponse> getWords(ServerRequest serverRequest) {
         String user = serverRequest.pathVariable(USER);
         String category = serverRequest.pathVariable(CATEGORY);
-        Flux<Word> words = wordsRepository.findByUserAndCategory(user, category);
+        Flux<Word> words = wordsRepository.findByUserAndCategory(user, UUID.fromString(category));
         return words.collectList().flatMap(data -> {
             if (data.isEmpty()) {
                 return notFound().build();
@@ -48,7 +50,7 @@ public class DictionaryHandler {
         String user = serverRequest.pathVariable(USER);
         String category = serverRequest.pathVariable(CATEGORY);
         boolean learned = Boolean.valueOf(serverRequest.pathVariable(LEARNED));
-        Flux<Word> words = wordsRepository.findByUserAndCategory(user, category).filter(word -> word.isLearned() == learned);
+        Flux<Word> words = wordsRepository.findByUserAndCategory(user, UUID.fromString(category)).filter(word -> word.isLearned() == learned);
         return words.collectList().flatMap(data -> {
             if (data.isEmpty()) {
                 return notFound().build();
@@ -68,9 +70,9 @@ public class DictionaryHandler {
     public Mono<ServerResponse> deleteCategory(ServerRequest serverRequest) {
         String user = serverRequest.pathVariable(USER);
         String category = serverRequest.pathVariable(CATEGORY);
-        return wordsRepository.findOneByUserAndCategory(user, category)
+        return wordsRepository.findOneByUserAndCategory(user, UUID.fromString(category))
                 .flatMap(existingWords ->
-                        wordsRepository.deleteByUserAndCategory(user, category)
+                        wordsRepository.deleteByUserAndCategory(user, UUID.fromString(category))
                                 .then(ok().build()))
                 .switchIfEmpty(notFound().build());
     }
@@ -91,7 +93,7 @@ public class DictionaryHandler {
             } catch (Exception e) {
                 throw Exceptions.propagate(e);
             }
-        }).flatMap(translation -> ok().body(wordsRepository.updateTranslation(user, category, forWord, new HashSet<>(Arrays.asList(translation))), Word.class));
+        }).flatMap(translation -> ok().body(wordsRepository.updateTranslation(user, UUID.fromString(category), forWord, new HashSet<>(Arrays.asList(translation))), Word.class));
     }
 
     public Mono<ServerResponse> deleteWord(ServerRequest serverRequest) {
@@ -99,9 +101,8 @@ public class DictionaryHandler {
         String category = serverRequest.pathVariable(CATEGORY);
         String word = serverRequest.pathVariable(WORD);
 
-        return wordsRepository.findByUserAndCategoryAndWord(user, category, word)
-                .flatMap(existingWord ->
-                        wordsRepository.deleteByUserAndCategoryAndWord(existingWord.getUser(), existingWord.getCategory(), existingWord.getWord())
+        return wordsRepository.findByUserAndCategoryAndWord(user, UUID.fromString(category), word)
+                .flatMap(existingWord -> wordsRepository.delete(existingWord)
                                 .then(ok().build()))
                 .switchIfEmpty(notFound().build());
     }
@@ -111,6 +112,6 @@ public class DictionaryHandler {
         String category = serverRequest.pathVariable(CATEGORY);
         String word = serverRequest.pathVariable(WORD);
         String translation = serverRequest.pathVariable(TRANSLATION);
-        return wordsRepository.deleteTranslation(user, category, word, new HashSet<>(Arrays.asList(translation))).then(ok().build());
+        return wordsRepository.deleteTranslation(user, UUID.fromString(category), word, new HashSet<>(Arrays.asList(translation))).then(ok().build());
     }
 }

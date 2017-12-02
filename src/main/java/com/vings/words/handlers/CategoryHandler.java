@@ -47,7 +47,7 @@ public class CategoryHandler {
         String user = serverRequest.pathVariable(USER);
         String name = serverRequest.pathVariable(TITLE);
         return categoryRepository.findByUserAndTitle(user, name).log()
-                .flatMap(category -> categoryRepository.deleteByUserAndTitle(user, name)
+                .flatMap(category -> categoryRepository.delete(category)
                         .then(ok().build()))
                 .switchIfEmpty(notFound().build());
     }

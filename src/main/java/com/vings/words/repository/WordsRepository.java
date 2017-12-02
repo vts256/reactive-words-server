@@ -9,26 +9,24 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.Set;
+import java.util.UUID;
 
 @Repository
 public interface WordsRepository extends ReactiveCassandraRepository<Word, String> {
 
-    Flux<Word> findByUserAndCategory(String user, String category);
+    Flux<Word> findByUserAndCategory(String user, UUID category);
 
-    Mono<Word> findByUserAndCategoryAndWord(String user, String category, String word);
+    Mono<Word> findByUserAndCategoryAndWord(String user, UUID category, String word);
 
-    Mono<Word> findOneByUserAndCategory(String user, String category);
+    Mono<Word> findOneByUserAndCategory(String user, UUID category);
 
     @Query("UPDATE word SET translation = translation + :translation WHERE user = :user AND category = :category AND word = :word;")
-    Mono<Word> updateTranslation(@Param("user") String user, @Param("category") String category, @Param("word") String word, @Param("translation") Set<String> translation);
+    Mono<Word> updateTranslation(@Param("user") String user, @Param("category") UUID category, @Param("word") String word, @Param("translation") Set<String> translation);
 
     @Query("UPDATE word SET translation = translation - :translation WHERE user = :user AND category = :category AND word = :word;")
-    Mono<Word> deleteTranslation(@Param("user") String user, @Param("category") String category, @Param("word") String word, @Param("translation") Set<String> translation);
+    Mono<Word> deleteTranslation(@Param("user") String user, @Param("category") UUID category, @Param("word") String word, @Param("translation") Set<String> translation);
 
     @Query("DELETE FROM word WHERE user = :user AND category = :category;")
-    Flux<Word> deleteByUserAndCategory(@Param("user") String user, @Param("category") String category);
-
-    @Query("DELETE FROM word WHERE user = :user AND category = :category AND word = :word;")
-    Mono<Word> deleteByUserAndCategoryAndWord(@Param("user") String user, @Param("category") String category, @Param("word") String word);
+    Flux<Word> deleteByUserAndCategory(@Param("user") String user, @Param("category") UUID category);
 
 }
