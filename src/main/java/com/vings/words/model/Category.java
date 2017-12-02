@@ -1,5 +1,6 @@
 package com.vings.words.model;
 
+import com.datastax.driver.core.utils.UUIDs;
 import lombok.Data;
 import org.springframework.data.cassandra.core.cql.Ordering;
 import org.springframework.data.cassandra.core.cql.PrimaryKeyType;
@@ -19,6 +20,10 @@ public class Category {
     private UUID id;
 
     public Category() {
+    }
+
+    public Category(String user, String title) {
+        this(user, title, UUIDs.random());
     }
 
     public Category(String user, String title, UUID id) {

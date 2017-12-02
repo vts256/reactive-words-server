@@ -16,6 +16,7 @@ public class CategoryHandler {
 
     private static final String USER = "user";
     private static final String TITLE = "title";
+    private static final String NEW_TITLE = "newTitle";
 
     private CategoryRepository categoryRepository;
 
@@ -38,15 +39,32 @@ public class CategoryHandler {
     public Mono<ServerResponse> create(ServerRequest serverRequest) {
         return serverRequest.bodyToMono(Category.class)
                 .filter(category -> category.getUser() != null && category.getTitle() != null)
-                .flatMap(category -> ok().body(categoryRepository.save(category), Category.class))
+                .flatMap(category ->
+                        categoryRepository.findByUserAndTitle(category.getUser(), category.getTitle())
+                                .flatMap(existingCategory -> badRequest().body(Mono.just("Category already exists"), String.class))
+                                .switchIfEmpty(ok().body(categoryRepository.save(new Category(category.getUser(), category.getTitle())), Category.class))
+                )
                 .switchIfEmpty(badRequest().body(Mono.just("Parameters isn't specified correctly"), String.class));
+    }
 
+    public Mono<ServerResponse> update(ServerRequest serverRequest) {
+        String user = serverRequest.pathVariable(USER);
+        String title = serverRequest.pathVariable(TITLE);
+        String newTitle = serverRequest.pathVariable(NEW_TITLE);
+
+        return categoryRepository.findByUserAndTitle(user, title).log()
+                .flatMap(category ->
+                        categoryRepository.findByUserAndTitle(user, newTitle).log()
+                                .flatMap(newCategory -> badRequest().body(Mono.just("Can't update, as new category already exist"), String.class))
+                                .switchIfEmpty(categoryRepository.delete(new Category(user, title))
+                                        .then(ok().body(categoryRepository.save(new Category(category.getUser(), newTitle, category.getId())), Category.class))))
+                .switchIfEmpty(badRequest().body(Mono.just("Category doesn't exist"), String.class));
     }
 
     public Mono<ServerResponse> delete(ServerRequest serverRequest) {
         String user = serverRequest.pathVariable(USER);
-        String name = serverRequest.pathVariable(TITLE);
-        return categoryRepository.findByUserAndTitle(user, name).log()
+        String title = serverRequest.pathVariable(TITLE);
+        return categoryRepository.findByUserAndTitle(user, title)
                 .flatMap(category -> categoryRepository.delete(category)
                         .then(ok().build()))
                 .switchIfEmpty(notFound().build());

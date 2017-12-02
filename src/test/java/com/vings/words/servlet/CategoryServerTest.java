@@ -18,6 +18,8 @@ import reactor.test.StepVerifier;
 
 import java.util.Arrays;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 @ExtendWith(SpringExtension.class)
 @SpringBootTest(classes = WordsApplication.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 public class CategoryServerTest {
@@ -29,9 +31,11 @@ public class CategoryServerTest {
 
     private WebTestClient client;
 
-    private String user = "user1";
-    private Category firstCategory = new Category(user, "category1", UUIDs.random());
-    private Category secondCategory = new Category(user, "category2", UUIDs.random());
+    private final String user = "user1";
+    private final String firstTitle = "category1";
+    private final String secondTitle = "category2";
+    private final Category firstCategory = new Category(user, firstTitle, UUIDs.random());
+    private final Category secondCategory = new Category(user, secondTitle, UUIDs.random());
 
     @BeforeEach
     void setUp() {
@@ -40,7 +44,6 @@ public class CategoryServerTest {
                 .baseUrl("http://localhost:" + port)
                 .build();
     }
-
 
     @AfterEach
     void tearDown() {
@@ -58,12 +61,81 @@ public class CategoryServerTest {
 
     @Test
     void saveCategory() {
-        client.post().uri("/category/").body(BodyInserters.fromObject(firstCategory)).exchange()
+        Category category = createCategory(user, firstTitle);
+        Category createdCategory = client.post().uri("/category/").body(BodyInserters.fromObject(category)).exchange()
                 .expectStatus().isOk()
-                .expectBody(Category.class).isEqualTo(firstCategory);
+                .expectBody(Category.class).returnResult().getResponseBody();
+
+        assertThat(createdCategory.getUser()).isEqualTo(category.getUser());
+        assertThat(createdCategory.getTitle()).isEqualTo(category.getTitle());
+        assertThat(createdCategory.getId()).isNotNull();
+
+        StepVerifier.create(categoryRepository.findByUser(user))
+                .expectNext(createdCategory).expectComplete().verify();
+    }
+
+    @Test
+    void saveExistingCategory() {
+        categoryRepository.save(firstCategory).block();
+
+        Category category = createCategory(user, firstTitle);
+        client.post().uri("/category/").body(BodyInserters.fromObject(category)).exchange()
+                .expectStatus().isBadRequest()
+                .expectBody(String.class).isEqualTo("Category already exists");
 
         StepVerifier.create(categoryRepository.findByUser(user))
                 .expectNext(firstCategory).expectComplete().verify();
+    }
+
+    @Test
+    void saveCategoryWithoutTitle() {
+
+        Category category = createCategory(user, null);
+        client.post().uri("/category/").body(BodyInserters.fromObject(category)).exchange()
+                .expectStatus().isBadRequest()
+                .expectBody(String.class).isEqualTo("Parameters isn't specified correctly");
+
+        StepVerifier.create(categoryRepository.findByUser(user))
+                .expectComplete().verify();
+    }
+
+    @Test
+    void updateCategory() {
+        categoryRepository.save(firstCategory).block();
+
+        Category createdCategory = client.patch().uri("/category/{0}/{1}/{2}", firstCategory.getUser(), firstCategory.getTitle(), secondTitle)
+                .exchange().expectStatus().isOk()
+                .expectBody(Category.class).returnResult().getResponseBody();
+
+        assertThat(createdCategory.getUser()).isEqualTo(firstCategory.getUser());
+        assertThat(createdCategory.getTitle()).isEqualTo(secondTitle);
+        assertThat(createdCategory.getId()).isEqualTo(firstCategory.getId());
+
+        StepVerifier.create(categoryRepository.findByUser(user))
+                .expectNext(createdCategory).expectComplete().verify();
+    }
+
+    @Test
+    void updateNotExistingCategory() {
+
+        client.patch().uri("/category/{0}/{1}/{2}", firstCategory.getUser(), firstCategory.getTitle(), secondTitle)
+                .exchange().expectStatus().isBadRequest()
+                .expectBody(String.class).isEqualTo("Category doesn't exist");
+
+        StepVerifier.create(categoryRepository.findByUser(user))
+                .expectComplete().verify();
+    }
+
+    @Test
+    void updateCategoryWhenCategoryWithNewTitleExist() {
+        categoryRepository.saveAll(Arrays.asList(firstCategory, secondCategory)).blockLast();
+
+        client.patch().uri("/category/{0}/{1}/{2}", firstCategory.getUser(), firstCategory.getTitle(), secondTitle)
+                .exchange().expectStatus().isBadRequest()
+                .expectBody(String.class).isEqualTo("Can't update, as new category already exist");
+
+        StepVerifier.create(categoryRepository.findByUser(user))
+                .expectNext(firstCategory, secondCategory).expectComplete().verify();
     }
 
     @Test
@@ -86,5 +158,12 @@ public class CategoryServerTest {
 
         StepVerifier.create(categoryRepository.findByUser(user))
                 .expectNext(secondCategory).expectComplete().verify();
+    }
+
+    private Category createCategory(String user, String title) {
+        Category category = new Category();
+        category.setUser(user);
+        category.setTitle(title);
+        return category;
     }
 }
