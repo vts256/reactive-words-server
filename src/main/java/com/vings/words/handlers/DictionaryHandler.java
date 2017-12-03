@@ -1,6 +1,5 @@
 package com.vings.words.handlers;
 
-import com.datastax.driver.core.utils.UUIDs;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.vings.words.model.Word;

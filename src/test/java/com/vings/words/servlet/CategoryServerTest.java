@@ -11,8 +11,14 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.web.server.LocalServerPort;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.web.reactive.server.WebTestClient;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
 import org.springframework.web.reactive.function.BodyInserters;
 import reactor.test.StepVerifier;
 
@@ -62,7 +68,9 @@ public class CategoryServerTest {
     @Test
     void saveCategory() {
         Category category = createCategory(user, firstTitle);
-        Category createdCategory = client.post().uri("/category/").body(BodyInserters.fromObject(category)).exchange()
+        Category createdCategory = client.post().uri("/category/")
+                .contentType(MediaType.MULTIPART_FORM_DATA)
+                .body(BodyInserters.fromMultipartData(generateMultipartData(category))).exchange()
                 .expectStatus().isOk()
                 .expectBody(Category.class).returnResult().getResponseBody();
 
@@ -79,7 +87,9 @@ public class CategoryServerTest {
         categoryRepository.save(firstCategory).block();
 
         Category category = createCategory(user, firstTitle);
-        client.post().uri("/category/").body(BodyInserters.fromObject(category)).exchange()
+        client.post().uri("/category/")
+                .contentType(MediaType.MULTIPART_FORM_DATA)
+                .body(BodyInserters.fromMultipartData(generateMultipartData(category))).exchange()
                 .expectStatus().isBadRequest()
                 .expectBody(String.class).isEqualTo("Category already exists");
 
@@ -91,7 +101,9 @@ public class CategoryServerTest {
     void saveCategoryWithoutTitle() {
 
         Category category = createCategory(user, null);
-        client.post().uri("/category/").body(BodyInserters.fromObject(category)).exchange()
+        client.post().uri("/category/")
+                .contentType(MediaType.MULTIPART_FORM_DATA)
+                .body(BodyInserters.fromMultipartData(generateMultipartData(category))).exchange()
                 .expectStatus().isBadRequest()
                 .expectBody(String.class).isEqualTo("Parameters isn't specified correctly");
 
@@ -158,6 +170,18 @@ public class CategoryServerTest {
 
         StepVerifier.create(categoryRepository.findByUser(user))
                 .expectNext(secondCategory).expectComplete().verify();
+    }
+
+    private MultiValueMap<String, Object> generateMultipartData(Category category) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.TEXT_PLAIN);
+        ClassPathResource image = new ClassPathResource("dictionary.png");
+        HttpEntity<ClassPathResource> imagePart = new HttpEntity<>(image, headers);
+        HttpEntity<Category> categoryPart = new HttpEntity<>(category);
+        MultiValueMap<String, Object> parts = new LinkedMultiValueMap<>();
+        parts.add("image", imagePart);
+        parts.add("category", categoryPart);
+        return parts;
     }
 
     private Category createCategory(String user, String title) {
