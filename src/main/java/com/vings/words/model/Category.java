@@ -19,7 +19,14 @@ public class Category {
 
     private UUID id;
 
+    private String imageUrl;
+
     public Category() {
+    }
+
+    public Category(String user, String title, String imageUrl) {
+        this(user, title);
+        this.imageUrl = imageUrl;
     }
 
     public Category(String user, String title) {
@@ -31,4 +38,5 @@ public class Category {
         this.title = title;
         this.id = id;
     }
+
 }

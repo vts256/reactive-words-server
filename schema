@@ -9,5 +9,6 @@ PRIMARY KEY((user, category), word));
 CREATE TABLE Category(
 user text,
 title text,
+imageUrl text,
 id uuid,
 PRIMARY KEY(user, title));

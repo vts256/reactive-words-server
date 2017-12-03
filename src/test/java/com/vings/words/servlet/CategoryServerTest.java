@@ -9,6 +9,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.web.server.LocalServerPort;
 import org.springframework.core.io.ClassPathResource;
@@ -29,8 +30,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 @ExtendWith(SpringExtension.class)
 @SpringBootTest(classes = WordsApplication.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 public class CategoryServerTest {
+
     @LocalServerPort
     private int port;
+
+    @Value("${s3.words.bucket.name}")
+    private String wordsBucket;
+
+    @Value("${s3.words.url}")
+    private String wordsServerUrl;
 
     @Autowired
     private CategoryRepository categoryRepository;
@@ -65,10 +73,11 @@ public class CategoryServerTest {
                 .expectBodyList(Category.class).hasSize(2).contains(firstCategory, secondCategory);
     }
 
+    //TODO: expand tests to check saved image
     @Test
     void saveCategory() {
         Category category = createCategory(user, firstTitle);
-        Category createdCategory = client.post().uri("/category/")
+        Category createdCategory = client.post().uri("/category/{0}", user)
                 .contentType(MediaType.MULTIPART_FORM_DATA)
                 .body(BodyInserters.fromMultipartData(generateMultipartData(category))).exchange()
                 .expectStatus().isOk()
@@ -76,6 +85,7 @@ public class CategoryServerTest {
 
         assertThat(createdCategory.getUser()).isEqualTo(category.getUser());
         assertThat(createdCategory.getTitle()).isEqualTo(category.getTitle());
+        assertThat(createdCategory.getImageUrl()).isEqualTo(wordsServerUrl + wordsBucket + "/" + user + "-" + firstTitle);
         assertThat(createdCategory.getId()).isNotNull();
 
         StepVerifier.create(categoryRepository.findByUser(user))
@@ -87,7 +97,7 @@ public class CategoryServerTest {
         categoryRepository.save(firstCategory).block();
 
         Category category = createCategory(user, firstTitle);
-        client.post().uri("/category/")
+        client.post().uri("/category/{0}", user)
                 .contentType(MediaType.MULTIPART_FORM_DATA)
                 .body(BodyInserters.fromMultipartData(generateMultipartData(category))).exchange()
                 .expectStatus().isBadRequest()
@@ -101,7 +111,7 @@ public class CategoryServerTest {
     void saveCategoryWithoutTitle() {
 
         Category category = createCategory(user, null);
-        client.post().uri("/category/")
+        client.post().uri("/category/{0}", user)
                 .contentType(MediaType.MULTIPART_FORM_DATA)
                 .body(BodyInserters.fromMultipartData(generateMultipartData(category))).exchange()
                 .expectStatus().isBadRequest()

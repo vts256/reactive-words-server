@@ -15,4 +15,7 @@ public interface CategoryRepository extends ReactiveCassandraRepository<Category
     Flux<Category> findByUser(String user);
 
     Mono<Category> findByUserAndTitle(String user, String title);
+
+    @Query("SELECT count(*) FROM category WHERE user = :user AND title = :title")
+    Mono<Integer> hasCategory(@Param("user") String user, @Param("title") String title);
 }

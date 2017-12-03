@@ -1,8 +1,12 @@
 package com.vings.words.handlers;
 
+import com.amazonaws.services.s3.AmazonS3;
+import com.amazonaws.services.s3.AmazonS3ClientBuilder;
+import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.vings.words.model.Category;
 import com.vings.words.repository.CategoryRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ResolvableType;
 import org.springframework.core.codec.StringDecoder;
 import org.springframework.http.MediaType;
@@ -29,6 +33,14 @@ public class CategoryHandler {
     private static final String TITLE = "title";
     private static final String NEW_TITLE = "newTitle";
 
+    @Value("${s3.words.bucket.name}")
+    private String wordsBucket;
+
+    @Value("${s3.words.url}")
+    private String wordsServerUrl;
+
+    private AmazonS3 s3Client = AmazonS3ClientBuilder.standard().build();
+
     private CategoryRepository categoryRepository;
 
     public CategoryHandler(CategoryRepository categoryRepository) {
@@ -48,42 +60,54 @@ public class CategoryHandler {
     }
 
     public Mono<ServerResponse> create(ServerRequest serverRequest) {
+        String user = serverRequest.pathVariable(USER);
         return serverRequest.body(BodyExtractors.toMultipartData())
                 .flatMap(parts -> {
                     Map<String, Part> partsMap = parts.toSingleValueMap();
-                    Part filePart = partsMap.get("image");
-                    Part category = partsMap.get("category");
+                    Part categoryPart = partsMap.get("category");
 
-                    return StringDecoder.textPlainOnly(false).decodeToMono(category.content(),
-                            ResolvableType.forClass(Category.class), MediaType.TEXT_PLAIN,
-                            Collections.emptyMap())
-                            .flatMap(obj -> {
-                                try {
-                                    ObjectMapper mapper = new ObjectMapper();
-                                    Category newCategory = mapper.readValue(obj, Category.class);
-                                    return Mono.just(newCategory);
-                                } catch (IOException exp) {
-                                    Exceptions.propagate(exp);
-                                }
-                                return Mono.empty();
-                            });
+                    return parseCategoryPart(categoryPart).flatMap(data -> {
+                        try {
+                            return parseCategory(data)
+                                    .filter(elem -> elem.getUser() != null && elem.getTitle() != null)
+                                    .flatMap(category -> categoryRepository.hasCategory(category.getUser(), category.getTitle())
+                                            .flatMap(foundCategories -> {
+                                                        if (foundCategories != 0) {
+                                                            return badRequest().body(Mono.just("Category already exists"), String.class);
+                                                        }
+                                                        Part filePart = partsMap.get("image");
+                                                        return filePart.content().flatMap(buffer -> {
+                                                            String imageName = user + "-" + category.getTitle();//TODO: possible name duplication
+                                                            s3Client.putObject(wordsBucket, imageName, buffer.asInputStream(), new ObjectMetadata());
+                                                            return Mono.just(wordsServerUrl + wordsBucket + "/" + imageName);
+                                                        }).collectList()
+                                                                .flatMap(urls -> {
+                                                                    category.setImageUrl(urls.get(0));
+                                                                    return Mono.just(category);
+                                                                }).flatMap(updatedCategory -> ok().body(categoryRepository.save(new Category(updatedCategory.getUser(),
+                                                                        updatedCategory.getTitle(), updatedCategory.getImageUrl())), Category.class));
 
-//                    return filePart.content().flatMap(buffer -> {
-//                        try (InputStream inputStream = buffer.asInputStream(); OutputStream outputStream = new FileOutputStream(new File("src/test/resources/test.png"))) {
-//                            copy(inputStream, outputStream);
-//                        } catch (IOException exp) {
-//                            Exceptions.propagate(exp);
-//                        }
-//                        return null;
-//                    }).then(ok().build());
-                })
-                .filter(category -> category.getUser() != null && category.getTitle() != null)
-                .flatMap(category ->
-                        categoryRepository.findByUserAndTitle(category.getUser(), category.getTitle())
-                                .flatMap(existingCategory -> badRequest().body(Mono.just("Category already exists"), String.class))
-                                .switchIfEmpty(ok().body(categoryRepository.save(new Category(category.getUser(), category.getTitle())), Category.class))
-                )
-                .switchIfEmpty(badRequest().body(Mono.just("Parameters isn't specified correctly"), String.class));
+                                                    }
+                                            ))
+                                    .switchIfEmpty(badRequest().body(Mono.just("Parameters isn't specified correctly"), String.class));
+                        } catch (IOException exp) {
+                            Exceptions.propagate(exp);
+                        }
+                        throw new IllegalStateException();
+                    });
+                });
+    }
+
+    private Mono<Category> parseCategory(String obj) throws IOException {
+        ObjectMapper mapper = new ObjectMapper();
+        Category category = mapper.readValue(obj, Category.class);
+        return Mono.just(category);
+    }
+
+    private Mono<String> parseCategoryPart(Part categoryPart) {
+        return StringDecoder.textPlainOnly(false).decodeToMono(categoryPart.content(),
+                ResolvableType.forClass(Category.class), MediaType.TEXT_PLAIN,
+                Collections.emptyMap());
     }
 
     public Mono<ServerResponse> update(ServerRequest serverRequest) {

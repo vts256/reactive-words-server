@@ -4,3 +4,9 @@ server:
 logging:
   level:
     root: INFO
+
+s3:
+  words:
+    bucket:
+      name: words-bucket
+    url: https://s3-us-west-1.amazonaws.com/
