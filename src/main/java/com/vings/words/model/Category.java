@@ -29,6 +29,11 @@ public class Category {
         this.imageUrl = imageUrl;
     }
 
+    public Category(String user, String title, String imageUrl, UUID id) {
+        this(user, title, id);
+        this.imageUrl = imageUrl;
+    }
+
     public Category(String user, String title) {
         this(user, title, UUIDs.random());
     }

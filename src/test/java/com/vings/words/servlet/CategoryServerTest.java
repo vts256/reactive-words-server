@@ -126,7 +126,9 @@ public class CategoryServerTest {
         categoryRepository.save(firstCategory).block();
 
         Category createdCategory = client.patch().uri("/category/{0}/{1}/{2}", firstCategory.getUser(), firstCategory.getTitle(), secondTitle)
-                .exchange().expectStatus().isOk()
+                .contentType(MediaType.MULTIPART_FORM_DATA)
+                .body(BodyInserters.fromMultipartData(generateImageData())).exchange()
+                .expectStatus().isOk()
                 .expectBody(Category.class).returnResult().getResponseBody();
 
         assertThat(createdCategory.getUser()).isEqualTo(firstCategory.getUser());
@@ -153,7 +155,9 @@ public class CategoryServerTest {
         categoryRepository.saveAll(Arrays.asList(firstCategory, secondCategory)).blockLast();
 
         client.patch().uri("/category/{0}/{1}/{2}", firstCategory.getUser(), firstCategory.getTitle(), secondTitle)
-                .exchange().expectStatus().isBadRequest()
+                .contentType(MediaType.MULTIPART_FORM_DATA)
+                .body(BodyInserters.fromMultipartData(generateImageData())).exchange()
+                .expectStatus().isBadRequest()
                 .expectBody(String.class).isEqualTo("Can't update, as new category already exist");
 
         StepVerifier.create(categoryRepository.findByUser(user))
@@ -182,14 +186,19 @@ public class CategoryServerTest {
                 .expectNext(secondCategory).expectComplete().verify();
     }
 
-    private MultiValueMap<String, Object> generateMultipartData(Category category) {
+    private MultiValueMap<String, Object> generateImageData() {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.TEXT_PLAIN);
         ClassPathResource image = new ClassPathResource("dictionary.png");
         HttpEntity<ClassPathResource> imagePart = new HttpEntity<>(image, headers);
-        HttpEntity<Category> categoryPart = new HttpEntity<>(category);
         MultiValueMap<String, Object> parts = new LinkedMultiValueMap<>();
         parts.add("image", imagePart);
+        return parts;
+    }
+
+    private MultiValueMap<String, Object> generateMultipartData(Category category) {
+        MultiValueMap<String, Object> parts = generateImageData();
+        HttpEntity<Category> categoryPart = new HttpEntity<>(category);
         parts.add("category", categoryPart);
         return parts;
     }

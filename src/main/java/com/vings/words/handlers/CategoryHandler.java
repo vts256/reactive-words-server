@@ -69,13 +69,13 @@ public class CategoryHandler {
                     return parseCategoryPart(categoryPart).flatMap(data -> {
                         try {
                             return parseCategory(data)
-                                    .filter(elem -> elem.getUser() != null && elem.getTitle() != null)
-                                    .flatMap(category -> categoryRepository.hasCategory(category.getUser(), category.getTitle())
+                                    .filter(elem -> elem.getTitle() != null)
+                                    .flatMap(category -> categoryRepository.hasCategory(user, category.getTitle())
                                             .flatMap(foundCategories -> {
                                                         if (foundCategories != 0) {
                                                             return badRequest().body(Mono.just("Category already exists"), String.class);
                                                         }
-                                                        Part filePart = partsMap.get("image");
+                                                        Part filePart = partsMap.get("image");//TODO: empty scenario
                                                         return filePart.content().flatMap(buffer -> {
                                                             String imageName = user + "-" + category.getTitle();//TODO: possible name duplication
                                                             s3Client.putObject(wordsBucket, imageName, buffer.asInputStream(), new ObjectMetadata());
@@ -84,7 +84,7 @@ public class CategoryHandler {
                                                                 .flatMap(urls -> {
                                                                     category.setImageUrl(urls.get(0));
                                                                     return Mono.just(category);
-                                                                }).flatMap(updatedCategory -> ok().body(categoryRepository.save(new Category(updatedCategory.getUser(),
+                                                                }).flatMap(updatedCategory -> ok().body(categoryRepository.save(new Category(user,
                                                                         updatedCategory.getTitle(), updatedCategory.getImageUrl())), Category.class));
 
                                                     }
@@ -115,12 +115,22 @@ public class CategoryHandler {
         String title = serverRequest.pathVariable(TITLE);
         String newTitle = serverRequest.pathVariable(NEW_TITLE);
 
-        return categoryRepository.findByUserAndTitle(user, title).log()
+        return categoryRepository.findByUserAndTitle(user, title)
                 .flatMap(category ->
-                        categoryRepository.findByUserAndTitle(user, newTitle).log()
+                        categoryRepository.findByUserAndTitle(user, newTitle)
                                 .flatMap(newCategory -> badRequest().body(Mono.just("Can't update, as new category already exist"), String.class))
-                                .switchIfEmpty(categoryRepository.delete(new Category(user, title))
-                                        .then(ok().body(categoryRepository.save(new Category(category.getUser(), newTitle, category.getId())), Category.class))))
+                                .switchIfEmpty(serverRequest.body(BodyExtractors.toMultipartData()).flatMap(parts -> {
+                                            Map<String, Part> partsMap = parts.toSingleValueMap();
+                                            Part filePart = partsMap.get("image");
+
+                                            return categoryRepository.delete(category).then(filePart.content().flatMap(buffer -> {//TODO: not change image if wasn't send
+                                                String imageName = category.getUser() + "-" + newTitle;
+                                                s3Client.putObject(wordsBucket, imageName, buffer.asInputStream(), new ObjectMetadata());
+                                                return Mono.just(wordsServerUrl + wordsBucket + "/" + imageName);
+                                            }).collectList().flatMap(urls -> ok().body(categoryRepository.save(new Category(category.getUser(), newTitle, urls.get(0), category.getId())), Category.class)))
+                                                    .switchIfEmpty(ok().body(categoryRepository.save(new Category(category.getUser(), newTitle, category.getId())), Category.class));
+                                        })
+                                ))
                 .switchIfEmpty(badRequest().body(Mono.just("Category doesn't exist"), String.class));
     }
 
