@@ -93,6 +93,24 @@ public class CategoryServerTest {
     }
 
     @Test
+    void saveCategoryWithoutImage() {
+        Category category = createCategory(user, firstTitle);
+        Category createdCategory = client.post().uri("/category/{0}", user)
+                .contentType(MediaType.MULTIPART_FORM_DATA)
+                .body(BodyInserters.fromMultipartData(generateWithoutImage(category))).exchange()
+                .expectStatus().isOk()
+                .expectBody(Category.class).returnResult().getResponseBody();
+
+        assertThat(createdCategory.getUser()).isEqualTo(category.getUser());
+        assertThat(createdCategory.getTitle()).isEqualTo(category.getTitle());
+        assertThat(createdCategory.getImageUrl()).isNull();
+        assertThat(createdCategory.getId()).isNotNull();
+
+        StepVerifier.create(categoryRepository.findByUser(user))
+                .expectNext(createdCategory).expectComplete().verify();
+    }
+
+    @Test
     void saveExistingCategory() {
         categoryRepository.save(firstCategory).block();
 
@@ -128,6 +146,24 @@ public class CategoryServerTest {
         Category createdCategory = client.patch().uri("/category/{0}/{1}/{2}", firstCategory.getUser(), firstCategory.getTitle(), secondTitle)
                 .contentType(MediaType.MULTIPART_FORM_DATA)
                 .body(BodyInserters.fromMultipartData(generateImageData())).exchange()
+                .expectStatus().isOk()
+                .expectBody(Category.class).returnResult().getResponseBody();
+
+        assertThat(createdCategory.getUser()).isEqualTo(firstCategory.getUser());
+        assertThat(createdCategory.getTitle()).isEqualTo(secondTitle);
+        assertThat(createdCategory.getId()).isEqualTo(firstCategory.getId());
+
+        StepVerifier.create(categoryRepository.findByUser(user))
+                .expectNext(createdCategory).expectComplete().verify();
+    }
+
+    @Test
+    void updateCategoryName() {
+        categoryRepository.save(firstCategory).block();
+
+        Category createdCategory = client.patch().uri("/category/{0}/{1}/{2}", firstCategory.getUser(), firstCategory.getTitle(), secondTitle)
+                .contentType(MediaType.MULTIPART_FORM_DATA)
+                .body(BodyInserters.fromMultipartData(new LinkedMultiValueMap<>())).exchange()
                 .expectStatus().isOk()
                 .expectBody(Category.class).returnResult().getResponseBody();
 
@@ -184,6 +220,15 @@ public class CategoryServerTest {
 
         StepVerifier.create(categoryRepository.findByUser(user))
                 .expectNext(secondCategory).expectComplete().verify();
+    }
+
+    private MultiValueMap<String, Object> generateWithoutImage(Category category) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.TEXT_PLAIN);
+        MultiValueMap<String, Object> parts = new LinkedMultiValueMap<>();
+        HttpEntity<Category> categoryPart = new HttpEntity<>(category);
+        parts.add("category", categoryPart);
+        return parts;
     }
 
     private MultiValueMap<String, Object> generateImageData() {
