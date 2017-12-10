@@ -6,6 +6,7 @@ import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.datastax.driver.core.utils.UUIDs;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.vings.words.model.Category;
+import com.vings.words.model.Image;
 import com.vings.words.repository.CategoryRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ResolvableType;
@@ -78,7 +79,7 @@ public class CategoryHandler {
                                                             return badRequest().body(Mono.just("Category already exists"), String.class);
                                                         }
                                                         Part filePart = partsMap.get("image");
-                                                        return filePart == null ? ok().body(categoryRepository.save(new Category(category.getUser(), category.getTitle())), Category.class) : //TODO: delete image from S3
+                                                        return filePart == null ? ok().body(categoryRepository.save(new Category(category.getUser(), category.getTitle())), Category.class) :
                                                                 saveImage(category.getUser(), category.getTitle(), filePart)
                                                                         .flatMap(urls -> ok().body(categoryRepository.save(new Category(user, category.getTitle(), urls.get(0))), Category.class));
 
@@ -108,31 +109,44 @@ public class CategoryHandler {
     public Mono<ServerResponse> update(ServerRequest serverRequest) {
         String user = serverRequest.pathVariable(USER);
         String title = serverRequest.pathVariable(TITLE);
-        String newTitle = serverRequest.pathVariable(NEW_TITLE);
+        String newTitle = serverRequest.pathVariable(NEW_TITLE);//TODO: move new title to body
 
         return categoryRepository.findByUserAndTitle(user, title)
                 .flatMap(category ->
-                        categoryRepository.findByUserAndTitle(user, newTitle)
+                        getExistingCategory(category, newTitle)
                                 .flatMap(newCategory -> badRequest().body(Mono.just("Can't update, as new category already exist"), String.class))
                                 .switchIfEmpty(serverRequest.body(BodyExtractors.toMultipartData()).flatMap(parts -> {
                                             Map<String, Part> partsMap = parts.toSingleValueMap();
                                             Part filePart = partsMap.get("image");
 
-                                            return categoryRepository.delete(category).then(filePart == null ? //TODO: delete image from S3
+                                            if (filePart != null && category.getImage() != null) {
+                                                s3Client.deleteObject(wordsBucket, category.getImage().getKey());
+                                            }
+
+                                            return categoryRepository.delete(category).then(filePart == null ? 
                                                     ok().body(categoryRepository.save(new Category(category.getUser(), newTitle, category.getId())), Category.class) :
                                                     saveImage(category.getUser(), newTitle, filePart)
                                                             .flatMap(urls -> ok().body(categoryRepository.save(new Category(category.getUser(), newTitle, urls.get(0), category.getId())), Category.class)))
                                                     .switchIfEmpty(ok().body(categoryRepository.save(new Category(category.getUser(), newTitle, category.getId())), Category.class));
                                         })
-                                ))
+                                )
+                )
                 .switchIfEmpty(badRequest().body(Mono.just("Category doesn't exist"), String.class));
     }
 
-    private Mono<List<String>> saveImage(String user, String title, Part filePart) {
+    private Mono<Category> getExistingCategory(Category category, String newTitle) {
+        if (category.getTitle().equals(newTitle)) {//TODO:check if body has a newTitle
+            return Mono.empty();
+        } else {
+            return categoryRepository.findByUserAndTitle(category.getUser(), newTitle);
+        }
+    }
+
+    private Mono<List<Image>> saveImage(String user, String title, Part filePart) {
         return filePart.content().flatMap(buffer -> {
             String imageName = user + "-" + title + "-" + UUIDs.timeBased().toString();
             s3Client.putObject(wordsBucket, imageName, buffer.asInputStream(), new ObjectMetadata());
-            return Mono.just(wordsServerUrl + wordsBucket + "/" + imageName);
+            return Mono.just(new Image(imageName, wordsServerUrl + wordsBucket + "/" + imageName));
         }).collectList();
     }
 

@@ -85,7 +85,8 @@ public class CategoryServerTest {
 
         assertThat(createdCategory.getUser()).isEqualTo(category.getUser());
         assertThat(createdCategory.getTitle()).isEqualTo(category.getTitle());
-        assertThat(createdCategory.getImageUrl()).contains(wordsServerUrl + wordsBucket + "/" + user + "-" + firstTitle);
+        assertThat(createdCategory.getImage()).isNotNull();
+        assertThat(createdCategory.getImage().getUrl()).contains(wordsServerUrl + wordsBucket + "/" + user + "-" + firstTitle);
         assertThat(createdCategory.getId()).isNotNull();
 
         StepVerifier.create(categoryRepository.findByUser(user))
@@ -103,7 +104,7 @@ public class CategoryServerTest {
 
         assertThat(createdCategory.getUser()).isEqualTo(category.getUser());
         assertThat(createdCategory.getTitle()).isEqualTo(category.getTitle());
-        assertThat(createdCategory.getImageUrl()).isNull();
+        assertThat(createdCategory.getImage()).isNull();
         assertThat(createdCategory.getId()).isNotNull();
 
         StepVerifier.create(categoryRepository.findByUser(user))
@@ -151,6 +152,8 @@ public class CategoryServerTest {
 
         assertThat(createdCategory.getUser()).isEqualTo(firstCategory.getUser());
         assertThat(createdCategory.getTitle()).isEqualTo(secondTitle);
+        assertThat(createdCategory.getImage()).isNotNull();
+        assertThat(createdCategory.getImage().getUrl()).contains(wordsServerUrl + wordsBucket + "/" + user + "-" + secondTitle);
         assertThat(createdCategory.getId()).isEqualTo(firstCategory.getId());
 
         StepVerifier.create(categoryRepository.findByUser(user))
@@ -169,6 +172,26 @@ public class CategoryServerTest {
 
         assertThat(createdCategory.getUser()).isEqualTo(firstCategory.getUser());
         assertThat(createdCategory.getTitle()).isEqualTo(secondTitle);
+        assertThat(createdCategory.getId()).isEqualTo(firstCategory.getId());
+
+        StepVerifier.create(categoryRepository.findByUser(user))
+                .expectNext(createdCategory).expectComplete().verify();
+    }
+
+    @Test
+    void updateCategoryImage() {
+        categoryRepository.save(firstCategory).block();
+
+        Category createdCategory = client.patch().uri("/category/{0}/{1}/{2}", firstCategory.getUser(), firstCategory.getTitle(), firstCategory.getTitle())
+                .contentType(MediaType.MULTIPART_FORM_DATA)
+                .body(BodyInserters.fromMultipartData(generateImageData())).exchange()
+                .expectStatus().isOk()
+                .expectBody(Category.class).returnResult().getResponseBody();
+
+        assertThat(createdCategory.getUser()).isEqualTo(firstCategory.getUser());
+        assertThat(createdCategory.getTitle()).isEqualTo(firstCategory.getTitle());
+        assertThat(createdCategory.getImage()).isNotNull();
+        assertThat(createdCategory.getImage().getUrl()).contains(wordsServerUrl + wordsBucket + "/" + user + "-" + firstTitle);
         assertThat(createdCategory.getId()).isEqualTo(firstCategory.getId());
 
         StepVerifier.create(categoryRepository.findByUser(user))

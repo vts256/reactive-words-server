@@ -10,3 +10,6 @@ s3:
     bucket:
       name: words-bucket
     url: https://s3-us-west-1.amazonaws.com/
+
+cassandra:
+  keyspace: words
