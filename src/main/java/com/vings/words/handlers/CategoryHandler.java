@@ -3,6 +3,7 @@ package com.vings.words.handlers;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.model.ObjectMetadata;
+import com.datastax.driver.core.utils.UUIDs;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.vings.words.model.Category;
 import com.vings.words.repository.CategoryRepository;
@@ -77,7 +78,7 @@ public class CategoryHandler {
                                                             return badRequest().body(Mono.just("Category already exists"), String.class);
                                                         }
                                                         Part filePart = partsMap.get("image");
-                                                        return filePart == null ? ok().body(categoryRepository.save(new Category(category.getUser(), category.getTitle())), Category.class) :
+                                                        return filePart == null ? ok().body(categoryRepository.save(new Category(category.getUser(), category.getTitle())), Category.class) : //TODO: delete image from S3
                                                                 saveImage(category.getUser(), category.getTitle(), filePart)
                                                                         .flatMap(urls -> ok().body(categoryRepository.save(new Category(user, category.getTitle(), urls.get(0))), Category.class));
 
@@ -117,7 +118,7 @@ public class CategoryHandler {
                                             Map<String, Part> partsMap = parts.toSingleValueMap();
                                             Part filePart = partsMap.get("image");
 
-                                            return categoryRepository.delete(category).then(filePart == null ?
+                                            return categoryRepository.delete(category).then(filePart == null ? //TODO: delete image from S3
                                                     ok().body(categoryRepository.save(new Category(category.getUser(), newTitle, category.getId())), Category.class) :
                                                     saveImage(category.getUser(), newTitle, filePart)
                                                             .flatMap(urls -> ok().body(categoryRepository.save(new Category(category.getUser(), newTitle, urls.get(0), category.getId())), Category.class)))
@@ -128,8 +129,8 @@ public class CategoryHandler {
     }
 
     private Mono<List<String>> saveImage(String user, String title, Part filePart) {
-        return filePart.content().flatMap(buffer -> {//TODO: not change image if wasn't send
-            String imageName = user + "-" + title;
+        return filePart.content().flatMap(buffer -> {
+            String imageName = user + "-" + title + "-" + UUIDs.timeBased().toString();
             s3Client.putObject(wordsBucket, imageName, buffer.asInputStream(), new ObjectMetadata());
             return Mono.just(wordsServerUrl + wordsBucket + "/" + imageName);
         }).collectList();

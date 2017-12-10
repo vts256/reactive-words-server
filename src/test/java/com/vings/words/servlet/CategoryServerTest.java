@@ -85,7 +85,7 @@ public class CategoryServerTest {
 
         assertThat(createdCategory.getUser()).isEqualTo(category.getUser());
         assertThat(createdCategory.getTitle()).isEqualTo(category.getTitle());
-        assertThat(createdCategory.getImageUrl()).isEqualTo(wordsServerUrl + wordsBucket + "/" + user + "-" + firstTitle);
+        assertThat(createdCategory.getImageUrl()).contains(wordsServerUrl + wordsBucket + "/" + user + "-" + firstTitle);
         assertThat(createdCategory.getId()).isNotNull();
 
         StepVerifier.create(categoryRepository.findByUser(user))
