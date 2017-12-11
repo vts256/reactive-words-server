@@ -42,12 +42,13 @@ public class CategoryHandler {
     @Value("${s3.words.url}")
     private String wordsServerUrl;
 
-    private AmazonS3 s3Client = AmazonS3ClientBuilder.standard().build();
+    private AmazonS3 s3Client;
 
     private CategoryRepository categoryRepository;
 
-    public CategoryHandler(CategoryRepository categoryRepository) {
+    public CategoryHandler(CategoryRepository categoryRepository, AmazonS3 s3Client) {
         this.categoryRepository = categoryRepository;
+        this.s3Client = s3Client;
     }
 
     public Mono<ServerResponse> get(ServerRequest serverRequest) {
@@ -154,8 +155,13 @@ public class CategoryHandler {
         String user = serverRequest.pathVariable(USER);
         String title = serverRequest.pathVariable(TITLE);
         return categoryRepository.findByUserAndTitle(user, title)
-                .flatMap(category -> categoryRepository.delete(category)
-                        .then(ok().build()))
+                .flatMap(category -> {
+                    if(category.getImage() != null) {
+                        s3Client.deleteObject(wordsBucket, category.getImage().getKey());
+                    }
+                    return categoryRepository.delete(category)
+                            .then(ok().build());
+                })
                 .switchIfEmpty(notFound().build());
     }
 }

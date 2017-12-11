@@ -1,8 +1,11 @@
 package com.vings.words.servlet;
 
+import com.amazonaws.services.s3.AmazonS3;
+import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.datastax.driver.core.utils.UUIDs;
 import com.vings.words.WordsApplication;
 import com.vings.words.model.Category;
+import com.vings.words.model.Image;
 import com.vings.words.repository.CategoryRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -11,6 +14,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.boot.web.server.LocalServerPort;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.http.HttpEntity;
@@ -23,9 +27,14 @@ import org.springframework.util.MultiValueMap;
 import org.springframework.web.reactive.function.BodyInserters;
 import reactor.test.StepVerifier;
 
+import java.io.InputStream;
 import java.util.Arrays;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 @ExtendWith(SpringExtension.class)
 @SpringBootTest(classes = WordsApplication.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -42,6 +51,9 @@ public class CategoryServerTest {
 
     @Autowired
     private CategoryRepository categoryRepository;
+
+    @MockBean
+    private AmazonS3 amazonS3;
 
     private WebTestClient client;
 
@@ -73,7 +85,6 @@ public class CategoryServerTest {
                 .expectBodyList(Category.class).hasSize(2).contains(firstCategory, secondCategory);
     }
 
-    //TODO: expand tests to check saved image
     @Test
     void saveCategory() {
         Category category = createCategory(user, firstTitle);
@@ -88,6 +99,8 @@ public class CategoryServerTest {
         assertThat(createdCategory.getImage()).isNotNull();
         assertThat(createdCategory.getImage().getUrl()).contains(wordsServerUrl + wordsBucket + "/" + user + "-" + firstTitle);
         assertThat(createdCategory.getId()).isNotNull();
+
+        verify(amazonS3).putObject(anyString(), anyString(), any(InputStream.class), any(ObjectMetadata.class));
 
         StepVerifier.create(categoryRepository.findByUser(user))
                 .expectNext(createdCategory).expectComplete().verify();
@@ -107,6 +120,8 @@ public class CategoryServerTest {
         assertThat(createdCategory.getImage()).isNull();
         assertThat(createdCategory.getId()).isNotNull();
 
+        verifyNoMoreInteractions(amazonS3);
+
         StepVerifier.create(categoryRepository.findByUser(user))
                 .expectNext(createdCategory).expectComplete().verify();
     }
@@ -122,6 +137,8 @@ public class CategoryServerTest {
                 .expectStatus().isBadRequest()
                 .expectBody(String.class).isEqualTo("Category already exists");
 
+        verifyNoMoreInteractions(amazonS3);
+
         StepVerifier.create(categoryRepository.findByUser(user))
                 .expectNext(firstCategory).expectComplete().verify();
     }
@@ -135,6 +152,8 @@ public class CategoryServerTest {
                 .body(BodyInserters.fromMultipartData(generateMultipartData(category))).exchange()
                 .expectStatus().isBadRequest()
                 .expectBody(String.class).isEqualTo("Parameters isn't specified correctly");
+
+        verifyNoMoreInteractions(amazonS3);
 
         StepVerifier.create(categoryRepository.findByUser(user))
                 .expectComplete().verify();
@@ -156,6 +175,8 @@ public class CategoryServerTest {
         assertThat(createdCategory.getImage().getUrl()).contains(wordsServerUrl + wordsBucket + "/" + user + "-" + secondTitle);
         assertThat(createdCategory.getId()).isEqualTo(firstCategory.getId());
 
+        verify(amazonS3).putObject(anyString(), anyString(), any(InputStream.class), any(ObjectMetadata.class));
+
         StepVerifier.create(categoryRepository.findByUser(user))
                 .expectNext(createdCategory).expectComplete().verify();
     }
@@ -173,6 +194,8 @@ public class CategoryServerTest {
         assertThat(createdCategory.getUser()).isEqualTo(firstCategory.getUser());
         assertThat(createdCategory.getTitle()).isEqualTo(secondTitle);
         assertThat(createdCategory.getId()).isEqualTo(firstCategory.getId());
+
+        verifyNoMoreInteractions(amazonS3);
 
         StepVerifier.create(categoryRepository.findByUser(user))
                 .expectNext(createdCategory).expectComplete().verify();
@@ -193,6 +216,8 @@ public class CategoryServerTest {
         assertThat(createdCategory.getImage()).isNotNull();
         assertThat(createdCategory.getImage().getUrl()).contains(wordsServerUrl + wordsBucket + "/" + user + "-" + firstTitle);
         assertThat(createdCategory.getId()).isEqualTo(firstCategory.getId());
+
+        verify(amazonS3).putObject(anyString(), anyString(), any(InputStream.class), any(ObjectMetadata.class));
 
         StepVerifier.create(categoryRepository.findByUser(user))
                 .expectNext(createdCategory).expectComplete().verify();
@@ -219,16 +244,21 @@ public class CategoryServerTest {
                 .expectStatus().isBadRequest()
                 .expectBody(String.class).isEqualTo("Can't update, as new category already exist");
 
+        verifyNoMoreInteractions(amazonS3);
+
         StepVerifier.create(categoryRepository.findByUser(user))
                 .expectNext(firstCategory, secondCategory).expectComplete().verify();
     }
 
     @Test
     void deleteCategory() {
+        firstCategory.setImage(new Image("key", "url"));
         categoryRepository.saveAll(Arrays.asList(firstCategory, secondCategory)).blockLast();
 
         client.delete().uri("/category/{0}/{1}", user, firstCategory.getTitle()).exchange()
                 .expectStatus().isOk();
+
+        verify(amazonS3).deleteObject(anyString(), anyString());
 
         StepVerifier.create(categoryRepository.findByUser(user))
                 .expectNext(secondCategory).expectComplete().verify();
@@ -240,6 +270,8 @@ public class CategoryServerTest {
 
         client.delete().uri("/category/{0}/{1}", user, firstCategory.getTitle()).exchange()
                 .expectStatus().isNotFound();
+
+        verifyNoMoreInteractions(amazonS3);
 
         StepVerifier.create(categoryRepository.findByUser(user))
                 .expectNext(secondCategory).expectComplete().verify();
