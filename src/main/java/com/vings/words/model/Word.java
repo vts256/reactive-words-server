@@ -6,6 +6,7 @@ import org.springframework.data.cassandra.core.cql.Ordering;
 import org.springframework.data.cassandra.core.cql.PrimaryKeyType;
 import org.springframework.data.cassandra.core.mapping.PrimaryKeyColumn;
 
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
@@ -28,7 +29,14 @@ public class Word {
 
     private Set<String> translation;
 
+    private Image image;
+
     public Word() {
+    }
+
+    public Word(String user, UUID category, String word, int answers, Image image, Set<String> translation) {
+        this(user, category, word, answers, translation);
+        this.image = image;
     }
 
     public Word(String user, UUID category, String word, int answers, Set<String> translation) {
@@ -39,7 +47,7 @@ public class Word {
         this.translation = translation;
     }
 
-    public boolean isLearned() {
+    public boolean learned() {
         return answers >= ANSWERS_ON_LEARNED_WORD;
     }
 }

@@ -7,6 +7,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.server.RouterFunction;
 import org.springframework.web.reactive.function.server.ServerResponse;
 
+import static org.springframework.http.MediaType.APPLICATION_FORM_URLENCODED;
+import static org.springframework.http.MediaType.APPLICATION_JSON;
+import static org.springframework.http.MediaType.MULTIPART_FORM_DATA;
 import static org.springframework.web.reactive.function.BodyInserters.fromObject;
 import static org.springframework.web.reactive.function.server.RequestPredicates.*;
 import static org.springframework.web.reactive.function.server.RouterFunctions.nest;
@@ -36,7 +39,7 @@ public class WordsRoutes {
 
     private RouterFunction<ServerResponse> dictionaryRoutes() {
         return nest(path("/dictionary"),
-                nest(accept(MediaType.APPLICATION_JSON, MediaType.APPLICATION_FORM_URLENCODED),
+                nest(accept(APPLICATION_JSON, APPLICATION_FORM_URLENCODED, MULTIPART_FORM_DATA),
                         route(GET("/{user}/{category}"), dictionaryHandler::getWords)
                                 .andRoute(GET("/{user}/{category}/{learned}"), dictionaryHandler::getWordsByLearnedFilter)
                                 .andRoute(POST("/{user}"), dictionaryHandler::save)
@@ -49,7 +52,7 @@ public class WordsRoutes {
 
     private RouterFunction<ServerResponse> categoryRoutes() {
         return nest(path("/category"),
-                nest(accept(MediaType.APPLICATION_JSON, MediaType.APPLICATION_FORM_URLENCODED, MediaType.MULTIPART_FORM_DATA),
+                nest(accept(APPLICATION_JSON, APPLICATION_FORM_URLENCODED, MULTIPART_FORM_DATA),
                         route(GET("/{user}"), categoryHandler::get)
                                 .andRoute(POST("/{user}"), categoryHandler::create)
                                 .andRoute(PATCH("/{user}/{title}/{newTitle}"), categoryHandler::update)
