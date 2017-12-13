@@ -1,5 +1,7 @@
 package com.vings.words.servlet;
 
+import com.amazonaws.services.s3.AmazonS3;
+import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.datastax.driver.core.utils.UUIDs;
 import com.vings.words.WordsApplication;
 import com.vings.words.model.Category;
@@ -12,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.boot.web.server.LocalServerPort;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.http.HttpEntity;
@@ -24,6 +27,7 @@ import org.springframework.util.MultiValueMap;
 import org.springframework.web.reactive.function.BodyInserters;
 import reactor.test.StepVerifier;
 
+import java.io.InputStream;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
@@ -32,6 +36,10 @@ import java.util.UUID;
 import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.springframework.http.MediaType.MULTIPART_FORM_DATA;
 import static org.springframework.http.MediaType.TEXT_PLAIN;
 
@@ -55,6 +63,9 @@ class WordsServletTest {
 
     private WebTestClient client;
 
+    @MockBean
+    private AmazonS3 amazonS3;
+
     @BeforeEach
     void setUp() {
         client = WebTestClient
@@ -65,7 +76,7 @@ class WordsServletTest {
 
     @AfterEach
     void tearDown() {
-//        wordsRepository.deleteAll().block();
+        wordsRepository.deleteAll().block();
     }
 
     @Test
@@ -148,6 +159,8 @@ class WordsServletTest {
                 .expectBody(Word.class).returnResult().getResponseBody();
 
         assertWord(response, first);
+
+        verify(amazonS3).putObject(anyString(), anyString(), any(InputStream.class), any(ObjectMetadata.class));
 
         StepVerifier.create(wordsRepository.findByUserAndCategoryAndWord(user, first.getCategory(), first.getWord()))
                 .assertNext(word -> assertWord(word, first))
@@ -265,9 +278,13 @@ class WordsServletTest {
 
     @Test
     void deleteCategory() {
+        first.setImage(image);
+        second.setImage(image);
         wordsRepository.saveAll(asList(first, second)).blockLast();
 
         client.delete().uri("/dictionary/{0}/{1}", user, category1).exchange().expectStatus().isOk();
+
+        verify(amazonS3, times(2)).deleteObject(anyString(), anyString());
 
         StepVerifier.create(wordsRepository.findByUserAndCategory(user, category1)).expectNextCount(0).verifyComplete();
     }
@@ -286,9 +303,12 @@ class WordsServletTest {
 
     @Test
     void deleteWord() {
+        first.setImage(image);
         wordsRepository.save(first).block();
 
         client.delete().uri("/dictionary/{0}/{1}/{2}", first.getUser(), first.getCategory(), first.getWord()).exchange().expectStatus().isOk();
+
+        verify(amazonS3).deleteObject(anyString(), anyString());
 
         StepVerifier.create(wordsRepository.findByUserAndCategoryAndWord(first.getUser(), first.getCategory(), first.getWord())).expectNextCount(0).verifyComplete();
     }

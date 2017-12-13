@@ -78,7 +78,7 @@ public class DictionaryHandler {
         });
     }
 
-    public Mono<ServerResponse> save(ServerRequest serverRequest) {//TODO: multipart
+    public Mono<ServerResponse> save(ServerRequest serverRequest) {
         return serverRequest.body(BodyExtractors.toMultipartData())
                 .flatMap(parts -> {
                     Map<String, Part> partsMap = parts.toSingleValueMap();
@@ -127,14 +127,23 @@ public class DictionaryHandler {
                 Collections.emptyMap());
     }
 
-    public Mono<ServerResponse> deleteCategory(ServerRequest serverRequest) {//TODO: delete images
+    public Mono<ServerResponse> deleteCategory(ServerRequest serverRequest) {
         String user = serverRequest.pathVariable(USER);
         String category = serverRequest.pathVariable(CATEGORY);
-        return wordsRepository.findOneByUserAndCategory(user, UUID.fromString(category))
-                .flatMap(existingWords ->
-                        wordsRepository.deleteByUserAndCategory(user, UUID.fromString(category))
-                                .then(ok().build()))
-                .switchIfEmpty(notFound().build());
+        return wordsRepository.findByUserAndCategory(user, UUID.fromString(category)).collectList()
+                .flatMap(existingWords -> {
+                    if(existingWords.isEmpty()) {
+                        return notFound().build();
+                    }
+
+                    existingWords.forEach(word -> {
+                        if (word.getImage() != null) {
+                            s3Client.deleteObject(wordsBucket, word.getImage().getKey());
+                        }
+                    });
+
+                    return wordsRepository.deleteByUserAndCategory(user, UUID.fromString(category)).then(ok().build());
+                });
     }
 
     public Mono<ServerResponse> updateWord(ServerRequest serverRequest) {//TODO: update image
@@ -156,14 +165,19 @@ public class DictionaryHandler {
         }).flatMap(translation -> ok().body(wordsRepository.updateTranslation(user, UUID.fromString(category), forWord, new HashSet<>(Arrays.asList(translation))), Word.class));
     }
 
-    public Mono<ServerResponse> deleteWord(ServerRequest serverRequest) {//TODO: delete image
+    public Mono<ServerResponse> deleteWord(ServerRequest serverRequest) {
         String user = serverRequest.pathVariable(USER);
         String category = serverRequest.pathVariable(CATEGORY);
         String word = serverRequest.pathVariable(WORD);
 
         return wordsRepository.findByUserAndCategoryAndWord(user, UUID.fromString(category), word)
-                .flatMap(existingWord -> wordsRepository.delete(existingWord)
-                        .then(ok().build()))
+                .flatMap(existingWord -> {
+                    if (existingWord.getImage() != null) {
+                        s3Client.deleteObject(wordsBucket, existingWord.getImage().getKey());
+                    }
+                    return wordsRepository.delete(existingWord)
+                            .then(ok().build());
+                })
                 .switchIfEmpty(notFound().build());
     }
 
