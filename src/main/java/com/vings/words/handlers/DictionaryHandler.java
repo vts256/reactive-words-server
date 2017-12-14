@@ -129,10 +129,10 @@ public class DictionaryHandler {
 
     public Mono<ServerResponse> deleteCategory(ServerRequest serverRequest) {
         String user = serverRequest.pathVariable(USER);
-        String category = serverRequest.pathVariable(CATEGORY);
-        return wordsRepository.findByUserAndCategory(user, UUID.fromString(category)).collectList()
+        UUID category = UUID.fromString(serverRequest.pathVariable(CATEGORY));
+        return wordsRepository.findByUserAndCategory(user, category).collectList()
                 .flatMap(existingWords -> {
-                    if(existingWords.isEmpty()) {
+                    if (existingWords.isEmpty()) {
                         return notFound().build();
                     }
 
@@ -142,27 +142,30 @@ public class DictionaryHandler {
                         }
                     });
 
-                    return wordsRepository.deleteByUserAndCategory(user, UUID.fromString(category)).then(ok().build());
+                    return wordsRepository.deleteByUserAndCategory(user, category).then(ok().build());
                 });
     }
 
-    public Mono<ServerResponse> updateWord(ServerRequest serverRequest) {//TODO: update image
+    public Mono<ServerResponse> updateImage(ServerRequest serverRequest) {//TODO: update image
         String user = serverRequest.pathVariable(USER);
-        String category = serverRequest.pathVariable(CATEGORY);
-        String forWord = serverRequest.pathVariable(WORD);
-        return serverRequest.bodyToMono(String.class).map(data -> {
-            try {
-                ObjectMapper objectMapper = new ObjectMapper();
-                JsonNode jsonNode = objectMapper.readTree(data);
-                JsonNode translation = jsonNode.get(TRANSLATION);
-                if (translation == null) {
-                    throw new IllegalArgumentException("translation isn't specified");
-                }
-                return translation.textValue();
-            } catch (Exception e) {
-                throw Exceptions.propagate(e);
-            }
-        }).flatMap(translation -> ok().body(wordsRepository.updateTranslation(user, UUID.fromString(category), forWord, new HashSet<>(Arrays.asList(translation))), Word.class));
+        UUID category = UUID.fromString(serverRequest.pathVariable(CATEGORY));
+        String word = serverRequest.pathVariable(WORD);
+
+        return serverRequest.body(BodyExtractors.toMultipartData())
+                .flatMap(parts -> wordsRepository.findByUserAndCategoryAndWord(user, category, word).flatMap(foundWord -> {
+                            if (foundWord.getImage() != null) {
+                                s3Client.deleteObject(wordsBucket, foundWord.getImage().getKey());
+                            }
+
+                            Map<String, Part> partsMap = parts.toSingleValueMap();
+                            Part filePart = partsMap.get("image");
+
+                            if (filePart == null) {
+                                return badRequest().body(Mono.just("Image wasn't found"), String.class);
+                            }
+                            return saveImage(user, word, filePart).flatMap(urls -> wordsRepository.saveImage(user, category, word, urls.get(0))).then(ok().build());
+                        }).switchIfEmpty(badRequest().body(Mono.just("word doesn't exists"), String.class))
+                );
     }
 
     public Mono<ServerResponse> deleteWord(ServerRequest serverRequest) {
@@ -187,5 +190,16 @@ public class DictionaryHandler {
         String word = serverRequest.pathVariable(WORD);
         String translation = serverRequest.pathVariable(TRANSLATION);
         return wordsRepository.deleteTranslation(user, UUID.fromString(category), word, new HashSet<>(Arrays.asList(translation))).then(ok().build());
+    }
+
+    public Mono<ServerResponse> addTranslation(ServerRequest serverRequest) {
+        String user = serverRequest.pathVariable(USER);
+        String category = serverRequest.pathVariable(CATEGORY);
+        String word = serverRequest.pathVariable(WORD);
+        String translation = serverRequest.pathVariable(TRANSLATION);
+        return wordsRepository.findByUserAndCategoryAndWord(user, UUID.fromString(category), word)
+                .flatMap(existingWord -> ok().body(wordsRepository.addTranslation(user, UUID.fromString(category), word, new HashSet<>(Arrays.asList(translation))), Word.class))
+                .switchIfEmpty(badRequest().body(Mono.just("word doesn't exists"), String.class));
+
     }
 }

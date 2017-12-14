@@ -2,7 +2,6 @@ package com.vings.words.routes;
 
 import com.vings.words.handlers.CategoryHandler;
 import com.vings.words.handlers.DictionaryHandler;
-import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.server.RouterFunction;
 import org.springframework.web.reactive.function.server.ServerResponse;
@@ -43,10 +42,11 @@ public class WordsRoutes {
                         route(GET("/{user}/{category}"), dictionaryHandler::getWords)
                                 .andRoute(GET("/{user}/{category}/{learned}"), dictionaryHandler::getWordsByLearnedFilter)
                                 .andRoute(POST("/{user}"), dictionaryHandler::save)
-                                .andRoute(PATCH("/{user}/{category}/{word}"), dictionaryHandler::updateWord)
+                                .andRoute(POST("/{user}/{category}/{word}/image"), dictionaryHandler::updateImage)
                                 .andRoute(DELETE("/{user}/{category}/{word}"), dictionaryHandler::deleteWord)
                                 .andRoute(DELETE("/{user}/{category}"), dictionaryHandler::deleteCategory)
-                                .andRoute(DELETE("/{user}/{category}/{word}/{translation}"), dictionaryHandler::deleteTranslation)
+                                .andRoute(PATCH("/{user}/{category}/{word}/add/{translation}"), dictionaryHandler::addTranslation)
+                                .andRoute(DELETE("/{user}/{category}/{word}/delete/{translation}"), dictionaryHandler::deleteTranslation)
                 ));
     }
 

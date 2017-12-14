@@ -195,12 +195,52 @@ class WordsServletTest {
     }
 
     @Test
+    void saveImage() {
+        wordsRepository.save(first).block();
+
+        client.post().uri("/dictionary/{0}/{1}/{2}/image", first.getUser(), first.getCategory(), first.getWord())
+                .contentType(MULTIPART_FORM_DATA)
+                .body(BodyInserters.fromMultipartData(generateImageData())).exchange()
+                .expectStatus().isOk();
+
+        StepVerifier.create(wordsRepository.findByUserAndCategoryAndWord(user, first.getCategory(), first.getWord()))
+                .expectNextMatches(data -> data.getImage() != null && data.getImage() != first.getImage()).verifyComplete();
+    }
+
+    @Test
+    void saveImageForNotExistedWord() {
+        client.post().uri("/dictionary/{0}/{1}/{2}/image", first.getUser(), first.getCategory(), first.getWord())
+                .contentType(MULTIPART_FORM_DATA)
+                .body(BodyInserters.fromMultipartData(generateImageData())).exchange()
+                .expectStatus().isBadRequest()
+                .expectBody(String.class).isEqualTo("word doesn't exists");
+
+        StepVerifier.create(wordsRepository.findByUserAndCategoryAndWord(user, first.getCategory(), first.getWord()))
+                .verifyComplete();
+    }
+
+    @Test
+    void saveImageWithoutData() {
+        wordsRepository.save(first).block();
+
+        client.post().uri("/dictionary/{0}/{1}/{2}/image", first.getUser(), first.getCategory(), first.getWord())
+                .contentType(MULTIPART_FORM_DATA)
+                .body(BodyInserters.fromMultipartData(new LinkedMultiValueMap<>())).exchange()
+                .expectStatus().isBadRequest()
+                .expectBody(String.class).isEqualTo("Image wasn't found");
+
+        StepVerifier.create(wordsRepository.findByUserAndCategoryAndWord(user, first.getCategory(), first.getWord()))
+                .expectNext(first).verifyComplete();
+    }
+
+    @Test
     void updateTranslation() {
 
         wordsRepository.save(first).block();
 
-        client.patch().uri("/dictionary/{0}/{1}/{2}", first.getUser(), first.getCategory(), first.getWord())
-                .body(BodyInserters.fromObject("{\"translation\":\"библиотека\"}")).exchange()
+        String translation = "библиотека";
+        client.patch().uri("/dictionary/{0}/{1}/{2}/add/{3}", first.getUser(), first.getCategory(), first.getWord(), translation)
+                .exchange()
                 .expectStatus().isOk();
 
         StepVerifier.create(wordsRepository.findByUserAndCategoryAndWord(user, first.getCategory(), first.getWord()))
@@ -208,37 +248,35 @@ class WordsServletTest {
     }
 
     @Test
-    void updateTranslationWithNotSpecifiedTranslationTag() {
-
-        wordsRepository.save(first).block();
-
-        client.patch().uri("/dictionary/{0}/{1}/{2}", first.getUser(), first.getCategory(), first.getWord())
-                .body(BodyInserters.fromObject("{\"wrong tag\":\"библиотека\"}")).exchange()
-                .expectStatus().isBadRequest();
-
-        StepVerifier.create(wordsRepository.findByUserAndCategoryAndWord(user, first.getCategory(), first.getWord()))
-                .expectNextMatches(data -> new HashSet<>(asList("Реактив")).equals(data.getTranslation())).verifyComplete();
-    }
-
-    @Test
     void badRequestWhenUpdateTranslationWithNonValidUUIDCategory() {
         String category = "category";
-        client.patch().uri("/dictionary/{0}/{1}/{2}", first.getUser(), category, first.getWord())
-                .body(BodyInserters.fromObject("{\"translation\":\"библиотека\"}")).exchange()
+        String translation = "библиотека";
+        client.patch().uri("/dictionary/{0}/{1}/{2}/add/{3}", first.getUser(), category, first.getWord(), translation)
+                .exchange()
                 .expectStatus().isBadRequest();
     }
 
     @Test
-    void updateTranslationWitDuplicateTranslation() {
+    void badRequestWhenUpdateTranslationNotExistingWord() {
+        String translation = "библиотека";
+        client.patch().uri("/dictionary/{0}/{1}/{2}/add/{3}", first.getUser(), first.getCategory(), first.getWord(), translation)
+                .exchange()
+                .expectStatus().isBadRequest()
+                .expectBody(String.class).isEqualTo("word doesn't exists");
+    }
+
+    @Test
+    void updateTranslationWithDuplicateTranslation() {
 
         wordsRepository.save(first).block();
 
-        client.patch().uri("/dictionary/{0}/{1}/{2}", first.getUser(), first.getCategory(), first.getWord())
-                .body(BodyInserters.fromObject("{\"translation\":\"Реактив\"}")).exchange()
+        String translation = "Реактив";
+        client.patch().uri("/dictionary/{0}/{1}/{2}/add/{3}", first.getUser(), first.getCategory(), first.getWord(), translation)
+                .exchange()
                 .expectStatus().isOk();
 
         StepVerifier.create(wordsRepository.findByUserAndCategoryAndWord(user, first.getCategory(), first.getWord()))
-                .expectNextMatches(data -> new HashSet<>(asList("Реактив")).equals(data.getTranslation())).verifyComplete();
+                .expectNextMatches(data -> new HashSet<>(asList(translation)).equals(data.getTranslation())).verifyComplete();
     }
 
     @Test
@@ -246,7 +284,7 @@ class WordsServletTest {
         wordsRepository.save(third).block();
 
         String translation = "Супер";
-        client.delete().uri("/dictionary/{0}/{1}/{2}/{3}", third.getUser(), third.getCategory(), third.getWord(), translation)
+        client.delete().uri("/dictionary/{0}/{1}/{2}/delete/{3}", third.getUser(), third.getCategory(), third.getWord(), translation)
                 .exchange()
                 .expectStatus().isOk();
 
@@ -258,7 +296,7 @@ class WordsServletTest {
     void badRequestWhenDeleteTranslationWithNonValidUUIDCategory() {
         String category = "category";
         String translation = "Супер";
-        client.delete().uri("/dictionary/{0}/{1}/{2}/{3}", third.getUser(), category, third.getWord(), translation)
+        client.delete().uri("/dictionary/{0}/{1}/{2}/delete/{3}", third.getUser(), category, third.getWord(), translation)
                 .exchange()
                 .expectStatus().isBadRequest();
     }
@@ -268,7 +306,7 @@ class WordsServletTest {
         wordsRepository.save(third).block();
 
         String translation = "NotExisting";
-        client.delete().uri("/dictionary/{0}/{1}/{2}/{3}", third.getUser(), third.getCategory(), third.getWord(), translation)
+        client.delete().uri("/dictionary/{0}/{1}/{2}/delete/{3}", third.getUser(), third.getCategory(), third.getWord(), translation)
                 .exchange()
                 .expectStatus().isOk();
 
