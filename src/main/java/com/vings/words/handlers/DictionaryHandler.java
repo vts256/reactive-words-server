@@ -3,7 +3,6 @@ package com.vings.words.handlers;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.datastax.driver.core.utils.UUIDs;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.vings.words.model.Image;
 import com.vings.words.model.Word;

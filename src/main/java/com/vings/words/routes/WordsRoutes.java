@@ -55,6 +55,7 @@ public class WordsRoutes {
                 nest(accept(APPLICATION_JSON, APPLICATION_FORM_URLENCODED, MULTIPART_FORM_DATA),
                         route(GET("/{user}"), categoryHandler::get)
                                 .andRoute(POST("/{user}"), categoryHandler::create)
+                                .andRoute(PATCH("/{user}/{title}/image"), categoryHandler::updateImage)
                                 .andRoute(PATCH("/{user}/{title}/{newTitle}"), categoryHandler::update)
                                 .andRoute(DELETE("/{user}/{title}"), categoryHandler::delete)
                 ));

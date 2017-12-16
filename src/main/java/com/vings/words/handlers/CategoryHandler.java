@@ -1,7 +1,6 @@
 package com.vings.words.handlers;
 
 import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.datastax.driver.core.utils.UUIDs;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -107,31 +106,40 @@ public class CategoryHandler {
                 Collections.emptyMap());
     }
 
+    public Mono<ServerResponse> updateImage(ServerRequest serverRequest) {
+        String user = serverRequest.pathVariable(USER);
+        String title = serverRequest.pathVariable(TITLE);
+
+        return categoryRepository.findByUserAndTitle(user, title)
+                .flatMap(category -> serverRequest.body(BodyExtractors.toMultipartData()).flatMap(parts -> {
+
+                    Map<String, Part> partsMap = parts.toSingleValueMap();
+                    Part filePart = partsMap.get("image");
+
+                    if (filePart == null) {
+                        throw new IllegalArgumentException("image couldn't be empty");
+                    }
+
+                    if (category.getImage() != null) {
+                        s3Client.deleteObject(wordsBucket, category.getImage().getKey());
+                    }
+
+                    return saveImage(category.getUser(), category.getTitle(), filePart)
+                            .flatMap(urls -> ok().body(categoryRepository.updateImage(category.getUser(), category.getTitle(), urls.get(0)), Category.class))
+                            .switchIfEmpty(badRequest().body(Mono.just("image couldn't be empty"), String.class));
+                }))
+                .switchIfEmpty(badRequest().body(Mono.just("Category doesn't exist"), String.class));
+    }
+
     public Mono<ServerResponse> update(ServerRequest serverRequest) {
         String user = serverRequest.pathVariable(USER);
         String title = serverRequest.pathVariable(TITLE);
-        String newTitle = serverRequest.pathVariable(NEW_TITLE);//TODO: move new title to body
+        String newTitle = serverRequest.pathVariable(NEW_TITLE);
 
         return categoryRepository.findByUserAndTitle(user, title)
-                .flatMap(category ->
-                        getExistingCategory(category, newTitle)
-                                .flatMap(newCategory -> badRequest().body(Mono.just("Can't update, as new category already exist"), String.class))
-                                .switchIfEmpty(serverRequest.body(BodyExtractors.toMultipartData()).flatMap(parts -> {
-                                            Map<String, Part> partsMap = parts.toSingleValueMap();
-                                            Part filePart = partsMap.get("image");
-
-                                            if (filePart != null && category.getImage() != null) {
-                                                s3Client.deleteObject(wordsBucket, category.getImage().getKey());
-                                            }
-
-                                            return categoryRepository.delete(category).then(filePart == null ? 
-                                                    ok().body(categoryRepository.save(new Category(category.getUser(), newTitle, category.getId())), Category.class) :
-                                                    saveImage(category.getUser(), newTitle, filePart)
-                                                            .flatMap(urls -> ok().body(categoryRepository.save(new Category(category.getUser(), newTitle, urls.get(0), category.getId())), Category.class)))
-                                                    .switchIfEmpty(ok().body(categoryRepository.save(new Category(category.getUser(), newTitle, category.getId())), Category.class));
-                                        })
-                                )
-                )
+                .flatMap(category -> getExistingCategory(category, newTitle)
+                        .flatMap(newCategory -> badRequest().body(Mono.just("Can't update, as new category already exist"), String.class))
+                        .switchIfEmpty(categoryRepository.delete(category).then(ok().body(categoryRepository.save(new Category(category.getUser(), newTitle, category.getId())), Category.class))))
                 .switchIfEmpty(badRequest().body(Mono.just("Category doesn't exist"), String.class));
     }
 
@@ -156,7 +164,7 @@ public class CategoryHandler {
         String title = serverRequest.pathVariable(TITLE);
         return categoryRepository.findByUserAndTitle(user, title)
                 .flatMap(category -> {
-                    if(category.getImage() != null) {
+                    if (category.getImage() != null) {
                         s3Client.deleteObject(wordsBucket, category.getImage().getKey());
                     }
                     return categoryRepository.delete(category)

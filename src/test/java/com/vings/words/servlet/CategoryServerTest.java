@@ -160,42 +160,18 @@ public class CategoryServerTest {
     }
 
     @Test
-    void updateCategory() {
+    void updateCategoryTitle() {
         categoryRepository.save(firstCategory).block();
 
         Category createdCategory = client.patch().uri("/category/{0}/{1}/{2}", firstCategory.getUser(), firstCategory.getTitle(), secondTitle)
-                .contentType(MediaType.MULTIPART_FORM_DATA)
-                .body(BodyInserters.fromMultipartData(generateImageData())).exchange()
+                .exchange()
                 .expectStatus().isOk()
                 .expectBody(Category.class).returnResult().getResponseBody();
 
         assertThat(createdCategory.getUser()).isEqualTo(firstCategory.getUser());
         assertThat(createdCategory.getTitle()).isEqualTo(secondTitle);
-        assertThat(createdCategory.getImage()).isNotNull();
-        assertThat(createdCategory.getImage().getUrl()).contains(wordsServerUrl + wordsBucket + "/" + user + "-" + secondTitle);
+        assertThat(createdCategory.getImage()).isNull();
         assertThat(createdCategory.getId()).isEqualTo(firstCategory.getId());
-
-        verify(amazonS3).putObject(anyString(), anyString(), any(InputStream.class), any(ObjectMetadata.class));
-
-        StepVerifier.create(categoryRepository.findByUser(user))
-                .expectNext(createdCategory).expectComplete().verify();
-    }
-
-    @Test
-    void updateCategoryName() {
-        categoryRepository.save(firstCategory).block();
-
-        Category createdCategory = client.patch().uri("/category/{0}/{1}/{2}", firstCategory.getUser(), firstCategory.getTitle(), secondTitle)
-                .contentType(MediaType.MULTIPART_FORM_DATA)
-                .body(BodyInserters.fromMultipartData(new LinkedMultiValueMap<>())).exchange()
-                .expectStatus().isOk()
-                .expectBody(Category.class).returnResult().getResponseBody();
-
-        assertThat(createdCategory.getUser()).isEqualTo(firstCategory.getUser());
-        assertThat(createdCategory.getTitle()).isEqualTo(secondTitle);
-        assertThat(createdCategory.getId()).isEqualTo(firstCategory.getId());
-
-        verifyNoMoreInteractions(amazonS3);
 
         StepVerifier.create(categoryRepository.findByUser(user))
                 .expectNext(createdCategory).expectComplete().verify();
@@ -205,22 +181,34 @@ public class CategoryServerTest {
     void updateCategoryImage() {
         categoryRepository.save(firstCategory).block();
 
-        Category createdCategory = client.patch().uri("/category/{0}/{1}/{2}", firstCategory.getUser(), firstCategory.getTitle(), firstCategory.getTitle())
+        client.patch().uri("/category/{0}/{1}/image", firstCategory.getUser(), firstCategory.getTitle())
                 .contentType(MediaType.MULTIPART_FORM_DATA)
                 .body(BodyInserters.fromMultipartData(generateImageData())).exchange()
-                .expectStatus().isOk()
-                .expectBody(Category.class).returnResult().getResponseBody();
-
-        assertThat(createdCategory.getUser()).isEqualTo(firstCategory.getUser());
-        assertThat(createdCategory.getTitle()).isEqualTo(firstCategory.getTitle());
-        assertThat(createdCategory.getImage()).isNotNull();
-        assertThat(createdCategory.getImage().getUrl()).contains(wordsServerUrl + wordsBucket + "/" + user + "-" + firstTitle);
-        assertThat(createdCategory.getId()).isEqualTo(firstCategory.getId());
+                .expectStatus().isOk();
 
         verify(amazonS3).putObject(anyString(), anyString(), any(InputStream.class), any(ObjectMetadata.class));
 
         StepVerifier.create(categoryRepository.findByUser(user))
-                .expectNext(createdCategory).expectComplete().verify();
+                .assertNext(category -> {
+                    assertThat(category.getId()).isEqualTo(firstCategory.getId());
+                    assertThat(category.getImage()).isNotNull();
+                    assertThat(category.getImage().getUrl()).contains(wordsServerUrl + wordsBucket + "/" + user + "-" + firstTitle);
+                }).expectComplete().verify();
+    }
+
+    @Test
+    void updateCategoryImageWithoutData() {
+        categoryRepository.save(firstCategory).block();
+
+        client.patch().uri("/category/{0}/{1}/image", firstCategory.getUser(), firstCategory.getTitle())
+                .contentType(MediaType.MULTIPART_FORM_DATA)
+                .body(BodyInserters.fromMultipartData(new LinkedMultiValueMap<>())).exchange()
+                .expectStatus().isBadRequest();
+
+        verifyNoMoreInteractions(amazonS3);
+
+        StepVerifier.create(categoryRepository.findByUser(user))
+                .expectNext(firstCategory).expectComplete().verify();
     }
 
     @Test
@@ -235,12 +223,26 @@ public class CategoryServerTest {
     }
 
     @Test
+    void updateImageForNotExistingCategory() {
+
+        client.patch().uri("/category/{0}/{1}/image", firstCategory.getUser(), firstCategory.getTitle())
+                .contentType(MediaType.MULTIPART_FORM_DATA)
+                .body(BodyInserters.fromMultipartData(generateImageData())).exchange()
+                .expectStatus().isBadRequest()
+                .expectBody(String.class).isEqualTo("Category doesn't exist");
+
+        verifyNoMoreInteractions(amazonS3);
+
+        StepVerifier.create(categoryRepository.findByUser(user))
+                .expectComplete().verify();
+    }
+
+    @Test
     void updateCategoryWhenCategoryWithNewTitleExist() {
         categoryRepository.saveAll(Arrays.asList(firstCategory, secondCategory)).blockLast();
 
         client.patch().uri("/category/{0}/{1}/{2}", firstCategory.getUser(), firstCategory.getTitle(), secondTitle)
-                .contentType(MediaType.MULTIPART_FORM_DATA)
-                .body(BodyInserters.fromMultipartData(generateImageData())).exchange()
+                .exchange()
                 .expectStatus().isBadRequest()
                 .expectBody(String.class).isEqualTo("Can't update, as new category already exist");
 
