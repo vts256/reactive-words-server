@@ -146,7 +146,7 @@ public class DictionaryHandler {
                 });
     }
 
-    public Mono<ServerResponse> updateImage(ServerRequest serverRequest) {//TODO: update image
+    public Mono<ServerResponse> updateImage(ServerRequest serverRequest) {
         String user = serverRequest.pathVariable(USER);
         UUID category = UUID.fromString(serverRequest.pathVariable(CATEGORY));
         String word = serverRequest.pathVariable(WORD);
@@ -189,7 +189,9 @@ public class DictionaryHandler {
         String category = serverRequest.pathVariable(CATEGORY);
         String word = serverRequest.pathVariable(WORD);
         String translation = serverRequest.pathVariable(TRANSLATION);
-        return wordsRepository.deleteTranslation(user, UUID.fromString(category), word, new HashSet<>(Arrays.asList(translation))).then(ok().build());
+        return wordsRepository.findByUserAndCategoryAndWord(user, UUID.fromString(category), word)
+                .flatMap(existingWord -> wordsRepository.deleteTranslation(user, UUID.fromString(category), word, new HashSet<>(Arrays.asList(translation))).then(ok().build()))
+                .switchIfEmpty(badRequest().body(Mono.just("word doesn't exists"), String.class));
     }
 
     public Mono<ServerResponse> addTranslation(ServerRequest serverRequest) {

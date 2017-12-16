@@ -315,6 +315,20 @@ class WordsServletTest {
     }
 
     @Test
+    void deleteTranslationFromNotExistingWord() {
+        wordsRepository.save(third).block();
+
+        String translation = "NotExisting";
+        client.delete().uri("/dictionary/{0}/{1}/{2}/delete/{3}", third.getUser(), third.getCategory(), first.getWord(), translation)
+                .exchange()
+                .expectStatus().isBadRequest()
+                .expectBody(String.class).isEqualTo("word doesn't exists");
+
+        StepVerifier.create(wordsRepository.findByUserAndCategoryAndWord(user, third.getCategory(), third.getWord()))
+                .expectNext(third).verifyComplete();
+    }
+
+    @Test
     void deleteCategory() {
         first.setImage(image);
         second.setImage(image);
