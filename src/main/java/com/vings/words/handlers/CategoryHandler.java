@@ -6,11 +6,9 @@ import com.datastax.driver.core.utils.UUIDs;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.vings.words.model.Category;
 import com.vings.words.model.Image;
+import com.vings.words.parser.MultipartParser;
 import com.vings.words.repository.CategoryRepository;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.ResolvableType;
-import org.springframework.core.codec.StringDecoder;
-import org.springframework.http.MediaType;
 import org.springframework.http.codec.multipart.Part;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.BodyExtractors;
@@ -21,7 +19,6 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.io.IOException;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -45,9 +42,12 @@ public class CategoryHandler {
 
     private CategoryRepository categoryRepository;
 
-    public CategoryHandler(CategoryRepository categoryRepository, AmazonS3 s3Client) {
+    private MultipartParser multipartParser;
+
+    public CategoryHandler(CategoryRepository categoryRepository, MultipartParser multipartParser, AmazonS3 s3Client) {
         this.categoryRepository = categoryRepository;
         this.s3Client = s3Client;
+        this.multipartParser = multipartParser;
     }
 
     public Mono<ServerResponse> get(ServerRequest serverRequest) {
@@ -69,7 +69,7 @@ public class CategoryHandler {
                     Map<String, Part> partsMap = parts.toSingleValueMap();
                     Part categoryPart = partsMap.get("category");
 
-                    return parseCategoryPart(categoryPart).flatMap(data -> {
+                    return multipartParser.parse(categoryPart, Category.class).flatMap(data -> {
                         try {
                             return parseCategory(data)
                                     .filter(elem -> elem.getTitle() != null)
@@ -98,12 +98,6 @@ public class CategoryHandler {
         ObjectMapper mapper = new ObjectMapper();
         Category category = mapper.readValue(obj, Category.class);
         return Mono.just(category);
-    }
-
-    private Mono<String> parseCategoryPart(Part categoryPart) {
-        return StringDecoder.textPlainOnly(false).decodeToMono(categoryPart.content(),
-                ResolvableType.forClass(Category.class), MediaType.TEXT_PLAIN,
-                Collections.emptyMap());
     }
 
     public Mono<ServerResponse> updateImage(ServerRequest serverRequest) {
@@ -144,7 +138,7 @@ public class CategoryHandler {
     }
 
     private Mono<Category> getExistingCategory(Category category, String newTitle) {
-        if (category.getTitle().equals(newTitle)) {//TODO:check if body has a newTitle
+        if (category.getTitle().equals(newTitle)) {
             return Mono.empty();
         } else {
             return categoryRepository.findByUserAndTitle(category.getUser(), newTitle);

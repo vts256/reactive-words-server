@@ -6,11 +6,9 @@ import com.datastax.driver.core.utils.UUIDs;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.vings.words.model.Image;
 import com.vings.words.model.Word;
+import com.vings.words.parser.MultipartParser;
 import com.vings.words.repository.WordsRepository;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.ResolvableType;
-import org.springframework.core.codec.StringDecoder;
-import org.springframework.http.MediaType;
 import org.springframework.http.codec.multipart.Part;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.BodyExtractors;
@@ -45,9 +43,12 @@ public class DictionaryHandler {
 
     private WordsRepository wordsRepository;
 
-    public DictionaryHandler(WordsRepository wordsRepository, AmazonS3 s3Client) {
+    private MultipartParser multipartParser;
+
+    public DictionaryHandler(WordsRepository wordsRepository, MultipartParser multipartParser, AmazonS3 s3Client) {
         this.wordsRepository = wordsRepository;
         this.s3Client = s3Client;
+        this.multipartParser = multipartParser;
     }
 
     public Mono<ServerResponse> getWords(ServerRequest serverRequest) {
@@ -82,7 +83,7 @@ public class DictionaryHandler {
                 .flatMap(parts -> {
                     Map<String, Part> partsMap = parts.toSingleValueMap();
                     Part wordPart = partsMap.get("word");
-                    return parseWordPart(wordPart).flatMap(data -> {
+                    return multipartParser.parse(wordPart, Word.class).flatMap(data -> {
                         try {
                             return parseWord(data).filter(elem -> elem.getUser() != null && elem.getWord() != null && elem.getCategory() != null && elem.getTranslation() != null)
                                     .flatMap(word -> wordsRepository.findByUserAndCategoryAndWord(word.getUser(), word.getCategory(), word.getWord())
@@ -118,12 +119,6 @@ public class DictionaryHandler {
         ObjectMapper mapper = new ObjectMapper();
         Word word = mapper.readValue(data, Word.class);
         return Mono.just(word);
-    }
-
-    private Mono<String> parseWordPart(Part wordPart) {//TODO: move to separate class, duplicate from category handler
-        return StringDecoder.textPlainOnly(false).decodeToMono(wordPart.content(),
-                ResolvableType.forClass(Word.class), MediaType.TEXT_PLAIN,
-                Collections.emptyMap());
     }
 
     public Mono<ServerResponse> deleteCategory(ServerRequest serverRequest) {
