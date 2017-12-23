@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.vings.words.model.Category;
 import com.vings.words.model.Image;
 import com.vings.words.parser.MultipartParser;
+import com.vings.words.parser.ObjectParser;
 import com.vings.words.repository.CategoryRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.codec.multipart.Part;
@@ -38,16 +39,20 @@ public class CategoryHandler {
     @Value("${s3.words.url}")
     private String wordsServerUrl;
 
-    private AmazonS3 s3Client;
+    private final AmazonS3 s3Client;
 
-    private CategoryRepository categoryRepository;
+    private final CategoryRepository categoryRepository;
 
-    private MultipartParser multipartParser;
+    private final MultipartParser multipartParser;
 
-    public CategoryHandler(CategoryRepository categoryRepository, MultipartParser multipartParser, AmazonS3 s3Client) {
+    private final ObjectParser objectParser;
+
+
+    public CategoryHandler(CategoryRepository categoryRepository, AmazonS3 s3Client, MultipartParser multipartParser, ObjectParser objectParser) {
         this.categoryRepository = categoryRepository;
         this.s3Client = s3Client;
         this.multipartParser = multipartParser;
+        this.objectParser = objectParser;
     }
 
     public Mono<ServerResponse> get(ServerRequest serverRequest) {
@@ -71,7 +76,7 @@ public class CategoryHandler {
 
                     return multipartParser.parse(categoryPart, Category.class).flatMap(data -> {
                         try {
-                            return parseCategory(data)
+                            return objectParser.parse(data, Category.class)
                                     .filter(elem -> elem.getTitle() != null)
                                     .flatMap(category -> categoryRepository.hasCategory(user, category.getTitle())
                                             .flatMap(foundCategories -> {
@@ -92,12 +97,6 @@ public class CategoryHandler {
                         throw new IllegalStateException();
                     });
                 });
-    }
-
-    private Mono<Category> parseCategory(String obj) throws IOException {
-        ObjectMapper mapper = new ObjectMapper();
-        Category category = mapper.readValue(obj, Category.class);
-        return Mono.just(category);
     }
 
     public Mono<ServerResponse> updateImage(ServerRequest serverRequest) {
@@ -137,6 +136,20 @@ public class CategoryHandler {
                 .switchIfEmpty(badRequest().body(Mono.just("Category doesn't exist"), String.class));
     }
 
+    public Mono<ServerResponse> delete(ServerRequest serverRequest) {
+        String user = serverRequest.pathVariable(USER);
+        String title = serverRequest.pathVariable(TITLE);
+        return categoryRepository.findByUserAndTitle(user, title)
+                .flatMap(category -> {
+                    if (category.getImage() != null) {
+                        s3Client.deleteObject(wordsBucket, category.getImage().getKey());
+                    }
+                    return categoryRepository.delete(category)
+                            .then(ok().build());
+                })
+                .switchIfEmpty(notFound().build());
+    }
+
     private Mono<Category> getExistingCategory(Category category, String newTitle) {
         if (category.getTitle().equals(newTitle)) {
             return Mono.empty();
@@ -151,19 +164,5 @@ public class CategoryHandler {
             s3Client.putObject(wordsBucket, imageName, buffer.asInputStream(), new ObjectMetadata());
             return Mono.just(new Image(imageName, wordsServerUrl + wordsBucket + "/" + imageName));
         }).collectList();
-    }
-
-    public Mono<ServerResponse> delete(ServerRequest serverRequest) {
-        String user = serverRequest.pathVariable(USER);
-        String title = serverRequest.pathVariable(TITLE);
-        return categoryRepository.findByUserAndTitle(user, title)
-                .flatMap(category -> {
-                    if (category.getImage() != null) {
-                        s3Client.deleteObject(wordsBucket, category.getImage().getKey());
-                    }
-                    return categoryRepository.delete(category)
-                            .then(ok().build());
-                })
-                .switchIfEmpty(notFound().build());
     }
 }
