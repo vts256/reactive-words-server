@@ -1,11 +1,13 @@
 package com.vings.words.servlet;
 
+import com.amazonaws.services.polly.AmazonPolly;
+import com.amazonaws.services.polly.model.SynthesizeSpeechRequest;
+import com.amazonaws.services.polly.model.SynthesizeSpeechResult;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.datastax.driver.core.utils.UUIDs;
 import com.vings.words.WordsApplication;
-import com.vings.words.model.Category;
-import com.vings.words.model.Image;
+import com.vings.words.model.Link;
 import com.vings.words.model.Word;
 import com.vings.words.repository.WordsRepository;
 import org.junit.jupiter.api.AfterEach;
@@ -19,7 +21,6 @@ import org.springframework.boot.web.server.LocalServerPort;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import org.springframework.util.LinkedMultiValueMap;
@@ -28,8 +29,6 @@ import org.springframework.web.reactive.function.BodyInserters;
 import reactor.test.StepVerifier;
 
 import java.io.InputStream;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.UUID;
 
@@ -38,8 +37,7 @@ import static java.util.Collections.singletonList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.*;
 import static org.springframework.http.MediaType.MULTIPART_FORM_DATA;
 import static org.springframework.http.MediaType.TEXT_PLAIN;
 
@@ -53,10 +51,10 @@ class WordsServletTest {
     private String user = "user1";
     private UUID category1 = UUIDs.random();
     private UUID category2 = UUIDs.random();
-    private Image image = new Image("key", "url");
-    private Word first = new Word(user, category1, "Reactive", 16, new HashSet<>(singletonList("Реактив")));
-    private Word second = new Word(user, category1, "Core", 100, new HashSet<>(singletonList("Основа")));
-    private Word third = new Word(user, category2, "Tango", 95, new HashSet<>(asList("Танго", "Супер")));
+    private Link link = new Link("key", "url");
+    private Word first = new Word.WordBuilder(user, category1, "Reactive").withAnswers(16).withTranslation(new HashSet<>(singletonList("Реактив"))).build();
+    private Word second = new Word.WordBuilder(user, category1, "Core").withAnswers(100).withTranslation(new HashSet<>(singletonList("Основа"))).build();
+    private Word third = new Word.WordBuilder(user, category2, "Tango").withAnswers(95).withTranslation(new HashSet<>(asList("Танго", "Супер"))).build();
 
     @Autowired
     private WordsRepository wordsRepository;
@@ -66,12 +64,17 @@ class WordsServletTest {
     @MockBean
     private AmazonS3 amazonS3;
 
+    @MockBean
+    private AmazonPolly amazonPolly;
+
     @BeforeEach
     void setUp() {
         client = WebTestClient
                 .bindToServer()
                 .baseUrl("http://localhost:" + port)
                 .build();
+
+        when(amazonPolly.synthesizeSpeech(any(SynthesizeSpeechRequest.class))).thenReturn(mock(SynthesizeSpeechResult.class));
     }
 
     @AfterEach
@@ -330,8 +333,8 @@ class WordsServletTest {
 
     @Test
     void deleteCategory() {
-        first.setImage(image);
-        second.setImage(image);
+        first.setImage(link);
+        second.setImage(link);
         wordsRepository.saveAll(asList(first, second)).blockLast();
 
         client.delete().uri("/dictionary/{0}/{1}", user, category1).exchange().expectStatus().isOk();
@@ -355,7 +358,7 @@ class WordsServletTest {
 
     @Test
     void deleteWord() {
-        first.setImage(image);
+        first.setImage(link);
         wordsRepository.save(first).block();
 
         client.delete().uri("/dictionary/{0}/{1}/{2}", first.getUser(), first.getCategory(), first.getWord()).exchange().expectStatus().isOk();

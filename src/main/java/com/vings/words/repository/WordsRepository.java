@@ -1,6 +1,6 @@
 package com.vings.words.repository;
 
-import com.vings.words.model.Image;
+import com.vings.words.model.Link;
 import com.vings.words.model.Word;
 import org.springframework.data.cassandra.repository.Query;
 import org.springframework.data.cassandra.repository.ReactiveCassandraRepository;
@@ -19,8 +19,6 @@ public interface WordsRepository extends ReactiveCassandraRepository<Word, Strin
 
     Mono<Word> findByUserAndCategoryAndWord(String user, UUID category, String word);
 
-    Mono<Word> findOneByUserAndCategory(String user, UUID category);
-
     @Query("UPDATE word SET translation = translation + :translation WHERE user = :user AND category = :category AND word = :word;")
     Mono<Word> addTranslation(@Param("user") String user, @Param("category") UUID category, @Param("word") String word, @Param("translation") Set<String> translation);
 
@@ -28,7 +26,7 @@ public interface WordsRepository extends ReactiveCassandraRepository<Word, Strin
     Mono<Word> deleteTranslation(@Param("user") String user, @Param("category") UUID category, @Param("word") String word, @Param("translation") Set<String> translation);
 
     @Query("UPDATE word SET image = :image WHERE user = :user AND category = :category AND word = :word;")
-    Mono<Word> saveImage(@Param("user") String user, @Param("category") UUID category, @Param("word") String word, @Param("image") Image image);
+    Mono<Word> saveImage(@Param("user") String user, @Param("category") UUID category, @Param("word") String word, @Param("image") Link image);
 
     @Query("DELETE FROM word WHERE user = :user AND category = :category;")
     Flux<Word> deleteByUserAndCategory(@Param("user") String user, @Param("category") UUID category);

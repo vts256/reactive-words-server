@@ -3,9 +3,8 @@ package com.vings.words.handlers;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.datastax.driver.core.utils.UUIDs;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.vings.words.model.Category;
-import com.vings.words.model.Image;
+import com.vings.words.model.Link;
 import com.vings.words.parser.MultipartParser;
 import com.vings.words.parser.ObjectParser;
 import com.vings.words.repository.CategoryRepository;
@@ -36,7 +35,7 @@ public class CategoryHandler {
     @Value("${s3.words.bucket.name}")
     private String wordsBucket;
 
-    @Value("${s3.words.url}")
+    @Value("${s3.url}")
     private String wordsServerUrl;
 
     private final AmazonS3 s3Client;
@@ -158,11 +157,11 @@ public class CategoryHandler {
         }
     }
 
-    private Mono<List<Image>> saveImage(String user, String title, Part filePart) {
+    private Mono<List<Link>> saveImage(String user, String title, Part filePart) {
         return filePart.content().flatMap(buffer -> {
             String imageName = user + "-" + title + "-" + UUIDs.timeBased().toString();
             s3Client.putObject(wordsBucket, imageName, buffer.asInputStream(), new ObjectMetadata());
-            return Mono.just(new Image(imageName, wordsServerUrl + wordsBucket + "/" + imageName));
+            return Mono.just(new Link(imageName, wordsServerUrl + wordsBucket + "/" + imageName));
         }).collectList();
     }
 }

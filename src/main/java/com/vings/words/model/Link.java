@@ -7,7 +7,7 @@ import org.springframework.data.cassandra.core.mapping.UserDefinedType;
 @Data
 @AllArgsConstructor
 @UserDefinedType
-public class Image {
+public class Link {
 
     private String key;
 

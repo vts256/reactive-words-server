@@ -9,7 +9,14 @@ s3:
   words:
     bucket:
       name: words-bucket
-    url: https://s3-us-west-1.amazonaws.com/
+  speech:
+    bucket:
+      name: words-speech-bucket
+  url: https://s3-us-west-1.amazonaws.com/
+
+polly:
+  words:
+    voice: Joanna
 
 cassandra:
   keyspace: words

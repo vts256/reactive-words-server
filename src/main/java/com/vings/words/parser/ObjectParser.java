@@ -10,6 +10,9 @@ import java.io.IOException;
 public class ObjectParser {
 
     public <T> Mono<T> parse(String data, Class<T> outputClass) throws IOException {
+        if (data == null) {
+            return Mono.empty();
+        }
         ObjectMapper mapper = new ObjectMapper();
         return Mono.just(mapper.readValue(data, outputClass));
     }

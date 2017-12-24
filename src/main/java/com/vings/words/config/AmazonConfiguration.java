@@ -1,5 +1,7 @@
 package com.vings.words.config;
 
+import com.amazonaws.services.polly.AmazonPolly;
+import com.amazonaws.services.polly.AmazonPollyClientBuilder;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import org.springframework.context.annotation.Bean;
@@ -11,5 +13,10 @@ public class AmazonConfiguration {
     @Bean
     public AmazonS3 s3Client() {
         return AmazonS3ClientBuilder.standard().build();
+    }
+
+    @Bean
+    public AmazonPolly pollyClient() {
+        return AmazonPollyClientBuilder.standard().build();
     }
 }

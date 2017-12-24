@@ -4,8 +4,8 @@ import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.datastax.driver.core.utils.UUIDs;
 import com.vings.words.WordsApplication;
+import com.vings.words.model.Link;
 import com.vings.words.model.Category;
-import com.vings.words.model.Image;
 import com.vings.words.repository.CategoryRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -46,7 +46,7 @@ public class CategoryServerTest {
     @Value("${s3.words.bucket.name}")
     private String wordsBucket;
 
-    @Value("${s3.words.url}")
+    @Value("${s3.url}")
     private String wordsServerUrl;
 
     @Autowired
@@ -254,7 +254,7 @@ public class CategoryServerTest {
 
     @Test
     void deleteCategory() {
-        firstCategory.setImage(new Image("key", "url"));
+        firstCategory.setImage(new Link("key", "url"));
         categoryRepository.saveAll(Arrays.asList(firstCategory, secondCategory)).blockLast();
 
         client.delete().uri("/category/{0}/{1}", user, firstCategory.getTitle()).exchange()

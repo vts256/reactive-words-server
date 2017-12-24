@@ -1,9 +1,13 @@
 package com.vings.words.handlers;
 
+import com.amazonaws.services.polly.AmazonPolly;
+import com.amazonaws.services.polly.model.OutputFormat;
+import com.amazonaws.services.polly.model.SynthesizeSpeechRequest;
+import com.amazonaws.services.polly.model.SynthesizeSpeechResult;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.datastax.driver.core.utils.UUIDs;
-import com.vings.words.model.Image;
+import com.vings.words.model.Link;
 import com.vings.words.model.Word;
 import com.vings.words.parser.MultipartParser;
 import com.vings.words.parser.ObjectParser;
@@ -36,10 +40,18 @@ public class DictionaryHandler {
     @Value("${s3.words.bucket.name}")
     private String wordsBucket;
 
-    @Value("${s3.words.url}")
+    @Value("${s3.speech.bucket.name}")
+    private String speechBucket;
+
+    @Value("${polly.words.voice}")
+    private String speechVoice;
+
+    @Value("${s3.url}")
     private String wordsServerUrl;
 
     private final AmazonS3 s3Client;
+
+    private final AmazonPolly pollyClient;
 
     private final WordsRepository wordsRepository;
 
@@ -47,9 +59,11 @@ public class DictionaryHandler {
 
     private final ObjectParser objectParser;
 
-    public DictionaryHandler(WordsRepository wordsRepository, AmazonS3 s3Client, MultipartParser multipartParser, ObjectParser objectParser) {
+
+    public DictionaryHandler(WordsRepository wordsRepository, AmazonS3 s3Client, AmazonPolly pollyClient, MultipartParser multipartParser, ObjectParser objectParser) {
         this.wordsRepository = wordsRepository;
         this.s3Client = s3Client;
+        this.pollyClient = pollyClient;
         this.multipartParser = multipartParser;
         this.objectParser = objectParser;
     }
@@ -116,6 +130,9 @@ public class DictionaryHandler {
                         if (word.getImage() != null) {
                             s3Client.deleteObject(wordsBucket, word.getImage().getKey());
                         }
+                        if (word.getSpeech() != null) {
+                            s3Client.deleteObject(speechBucket, word.getSpeech().getKey());
+                        }
                     });
 
                     return wordsRepository.deleteByUserAndCategory(user, category).then(ok().build());
@@ -130,7 +147,10 @@ public class DictionaryHandler {
         return serverRequest.body(BodyExtractors.toMultipartData())
                 .flatMap(parts -> wordsRepository.findByUserAndCategoryAndWord(user, category, word).flatMap(foundWord -> {
                             if (foundWord.getImage() != null) {
-                                s3Client.deleteObject(wordsBucket, foundWord.getImage().getKey());
+                                s3Client.deleteObject(wordsBucket, foundWord.getImage().getKey());//TODO: move to separate class
+                            }
+                            if (foundWord.getSpeech() != null) {
+                                s3Client.deleteObject(speechBucket, foundWord.getSpeech().getKey());
                             }
 
                             Map<String, Part> partsMap = parts.toSingleValueMap();
@@ -153,6 +173,9 @@ public class DictionaryHandler {
                 .flatMap(existingWord -> {
                     if (existingWord.getImage() != null) {
                         s3Client.deleteObject(wordsBucket, existingWord.getImage().getKey());
+                    }
+                    if (existingWord.getSpeech() != null) {
+                        s3Client.deleteObject(speechBucket, existingWord.getSpeech().getKey());
                     }
                     return wordsRepository.delete(existingWord)
                             .then(ok().build());
@@ -183,16 +206,38 @@ public class DictionaryHandler {
 
     private Mono<? extends ServerResponse> saveWord(Word word, Map<String, Part> partsMap) {
         Part filePart = partsMap.get("image");
+
+        Link speech = generateSpeech(word);
+        word.setSpeech(speech);
+
         return filePart == null ? ok().body(wordsRepository.save(word), Word.class) :
                 saveImage(word.getUser(), word.getWord(), filePart)
-                        .flatMap(urls -> ok().body(wordsRepository.save(new Word(word.getUser(), word.getCategory(), word.getWord(), 0, urls.get(0), word.getTranslation())), Word.class));
+                        .flatMap(urls -> ok().body(wordsRepository.save(new Word.WordBuilder(word.getUser(), word.getCategory(), word.getWord())
+                                .withImage(urls.get(0)).withTranslation(word.getTranslation()).build()), Word.class));
     }
 
-    private Mono<List<Image>> saveImage(String user, String word, Part filePart) {
+    private Link generateSpeech(Word word) {
+        SynthesizeSpeechRequest synthesizeSpeechRequest = new SynthesizeSpeechRequest()
+                .withText(word.getWord())
+                .withVoiceId(speechVoice)
+                .withOutputFormat(OutputFormat.Mp3);
+
+        SynthesizeSpeechResult synthesizeSpeechResult = pollyClient.synthesizeSpeech(synthesizeSpeechRequest);
+        String speechName = word.getUser() + "-" + word.getWord() + "-" + UUIDs.timeBased().toString();
+        s3Client.putObject(speechBucket, speechName, synthesizeSpeechResult.getAudioStream(), new ObjectMetadata());
+        return createLink(speechName, speechBucket);
+    }
+
+    private Mono<List<Link>> saveImage(String user, String word, Part filePart) {
         return filePart.content().flatMap(buffer -> {
             String imageName = user + "-" + word + "-" + UUIDs.timeBased().toString();
             s3Client.putObject(wordsBucket, imageName, buffer.asInputStream(), new ObjectMetadata());
-            return Mono.just(new Image(imageName, wordsServerUrl + wordsBucket + "/" + imageName));
+            return Mono.just(createLink(imageName, wordsBucket));
         }).collectList();
     }
+
+    private Link createLink(String key, String bucket) {
+        return new Link(key, wordsServerUrl + bucket + "/" + key);
+    }
+
 }

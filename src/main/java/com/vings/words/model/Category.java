@@ -19,17 +19,17 @@ public class Category {
 
     private UUID id;
 
-    private Image image;
+    private Link image;
 
     public Category() {
     }
 
-    public Category(String user, String title, Image image) {
+    public Category(String user, String title, Link image) {
         this(user, title);
         this.image = image;
     }
 
-    public Category(String user, String title, Image image, UUID id) {
+    public Category(String user, String title, Link image, UUID id) {
         this(user, title, id);
         this.image = image;
     }
