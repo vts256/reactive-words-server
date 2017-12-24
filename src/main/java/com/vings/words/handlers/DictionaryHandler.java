@@ -205,15 +205,15 @@ public class DictionaryHandler {
     }
 
     private Mono<? extends ServerResponse> saveWord(Word word, Map<String, Part> partsMap) {
-        Part filePart = partsMap.get("image");
 
         Link speech = generateSpeech(word);
         word.setSpeech(speech);
 
+        Part filePart = partsMap.get("image");
         return filePart == null ? ok().body(wordsRepository.save(word), Word.class) :
                 saveImage(word.getUser(), word.getWord(), filePart)
                         .flatMap(urls -> ok().body(wordsRepository.save(new Word.WordBuilder(word.getUser(), word.getCategory(), word.getWord())
-                                .withImage(urls.get(0)).withTranslation(word.getTranslation()).build()), Word.class));
+                                .withImage(urls.get(0)).withSpeech(word.getSpeech()).withTranslation(word.getTranslation()).build()), Word.class));
     }
 
     private Link generateSpeech(Word word) {

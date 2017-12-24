@@ -178,6 +178,8 @@ class WordsServletTest {
         assertThat(actual.getCategory()).isEqualTo(expected.getCategory());
         assertThat(actual.getImage()).isNotNull();
         assertThat(actual.getImage().getUrl()).isNotEmpty();
+        assertThat(actual.getSpeech()).isNotNull();
+        assertThat(actual.getSpeech().getUrl()).isNotEmpty();
     }
 
     private MultiValueMap<String, Object> generateMultipartData(Word word) {
