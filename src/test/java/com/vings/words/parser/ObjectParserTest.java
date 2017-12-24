@@ -1,5 +1,6 @@
 package com.vings.words.parser;
 
+import com.fasterxml.jackson.databind.exc.MismatchedInputException;
 import com.vings.words.model.Word;
 import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Mono;
@@ -10,6 +11,7 @@ import java.util.HashSet;
 import java.util.UUID;
 
 import static java.util.Collections.singletonList;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class ObjectParserTest {
 
@@ -25,10 +27,15 @@ class ObjectParserTest {
     }
 
     @Test
-    void parseWithEmptyData() throws IOException {
+    void parseNullData() throws IOException {
         String wordData = null;
         Mono<Word> mono = objectParser.parse(wordData, Word.class);
 
         StepVerifier.create(mono).expectComplete().verify();
+    }
+
+    @Test
+    void parseEmptyData() {
+        assertThrows(MismatchedInputException.class, () -> objectParser.parse("", Word.class), "No content to map due to end-of-input");
     }
 }
