@@ -63,6 +63,7 @@ public class CategoryServerTest {
     private final Category firstCategory = new Category(user, firstTitle, UUIDs.random());
     private final Category secondCategory = new Category(user, secondTitle, UUIDs.random());
 
+    //TODO: move to abstract test
     @BeforeEach
     void setUp() {
         client = WebTestClient

@@ -59,7 +59,6 @@ public class DictionaryHandler {
 
     private final ObjectParser objectParser;
 
-
     public DictionaryHandler(WordsRepository wordsRepository, AmazonS3 s3Client, AmazonPolly pollyClient, MultipartParser multipartParser, ObjectParser objectParser) {
         this.wordsRepository = wordsRepository;
         this.s3Client = s3Client;

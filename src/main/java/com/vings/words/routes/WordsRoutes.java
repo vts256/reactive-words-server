@@ -2,6 +2,7 @@ package com.vings.words.routes;
 
 import com.vings.words.handlers.CategoryHandler;
 import com.vings.words.handlers.DictionaryHandler;
+import com.vings.words.handlers.QuizHandler;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.server.RouterFunction;
 import org.springframework.web.reactive.function.server.ServerResponse;
@@ -18,18 +19,21 @@ import static org.springframework.web.reactive.function.server.ServerResponse.ok
 @Component
 public class WordsRoutes {
 
-    private DictionaryHandler dictionaryHandler;
-    private CategoryHandler categoryHandler;
+    private final DictionaryHandler dictionaryHandler;
+    private final CategoryHandler categoryHandler;
+    private final QuizHandler quizHandler;
 
-    public WordsRoutes(DictionaryHandler dictionaryHandler, CategoryHandler categoryHandler) {
+    public WordsRoutes(DictionaryHandler dictionaryHandler, CategoryHandler categoryHandler, QuizHandler quizHandler) {
         this.dictionaryHandler = dictionaryHandler;
         this.categoryHandler = categoryHandler;
+        this.quizHandler = quizHandler;
     }
 
     public RouterFunction<ServerResponse> routingFunction() {
         return baseRoutes()
                 .and(dictionaryRoutes())
-                .and(categoryRoutes());
+                .and(categoryRoutes())
+                .and(quizRoutes());
     }
 
     private RouterFunction<ServerResponse> baseRoutes() {
@@ -58,6 +62,15 @@ public class WordsRoutes {
                                 .andRoute(PATCH("/{user}/{title}/image"), categoryHandler::updateImage)
                                 .andRoute(PATCH("/{user}/{title}/{newTitle}"), categoryHandler::update)
                                 .andRoute(DELETE("/{user}/{title}"), categoryHandler::delete)
+                ));
+    }
+
+    private RouterFunction<ServerResponse> quizRoutes() {
+        return nest(path("/quiz"),
+                nest(accept(APPLICATION_JSON, APPLICATION_FORM_URLENCODED),
+                        route(GET("/sprint/{user}/{category}/{page}/{offset}"), quizHandler::sprint)
+                                .andRoute(GET("/crossword/{user}/{category}/{page}/{offset}"), quizHandler::crossword)
+                                .andRoute(GET("/guess/{user}/{category}/{page}/{offset}"), quizHandler::guess)
                 ));
     }
 }
