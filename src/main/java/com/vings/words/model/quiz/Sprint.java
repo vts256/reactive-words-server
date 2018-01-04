@@ -10,6 +10,4 @@ public class Sprint {
     private String word;
     private String answer;
     private boolean isCorrect;
-
-
 }

@@ -1,5 +1,6 @@
 package com.vings.words.handlers;
 
+import com.vings.words.model.Word;
 import com.vings.words.model.quiz.Sprint;
 import com.vings.words.repository.WordsRepository;
 import org.springframework.stereotype.Component;
@@ -8,6 +9,7 @@ import org.springframework.web.reactive.function.server.ServerResponse;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -35,18 +37,22 @@ public class QuizHandler {
         int offset = Integer.parseInt(serverRequest.pathVariable(OFFSET));
 
         return wordsRepository.findByUserAndCategory(user, category)
-                .filter(word -> word.getAnswers() < 100)
-                .skip(page * offset)
-                .take(offset)
                 .collectList()
-                .flatMap(words -> wordsRepository.findByUserAndCategory(user, category)
-                        .flatMap(word -> Flux.fromIterable(word.getTranslation())).collectList()
-                        .flatMap(elems -> Mono.just(words.stream().map(word -> {
-                            double random = Math.random();
-                            String answer = Double.compare(random, 0.55) > 0 ? word.getTranslation().stream().findAny().get() : elems.get((int) Math.random() * elems.size());
-                            return new Sprint(word.getWord(), answer, word.getTranslation().contains(answer));
-                        }).collect(Collectors.toList())))
-                ).flatMap(questions -> ok().body(fromObject(questions)));
+                .flatMap(allWords ->
+                        Flux.fromIterable(allWords)
+                                .filter(word -> word.getAnswers() < 100)
+                                .skip(page * offset)
+                                .take(offset)
+                                .map(word -> {
+                                    double random = Math.random();
+                                    String answer = Double.compare(random, 0.55) > 0 ? findTranslation(word) : findTranslation(allWords.get((int) Math.random() * allWords.size()));
+                                    return new Sprint(word.getWord(), answer, word.getTranslation().contains(answer));
+                                }).collectList())
+                .flatMap(questions -> ok().body(fromObject(questions)));
+    }
+
+    private String findTranslation(Word word) {
+        return word.getTranslation().stream().findAny().get();
     }
 
     public Mono<ServerResponse> crossword(ServerRequest serverRequest) {
@@ -57,7 +63,14 @@ public class QuizHandler {
 
     public Mono<ServerResponse> guess(ServerRequest serverRequest) {
         String user = serverRequest.pathVariable(USER);
-        String category = serverRequest.pathVariable(CATEGORY);
-        return Mono.empty();
+        UUID category = UUID.fromString(serverRequest.pathVariable(CATEGORY));
+        int page = Integer.parseInt(serverRequest.pathVariable(PAGE));
+        int offset = Integer.parseInt(serverRequest.pathVariable(OFFSET));
+        return wordsRepository.findByUserAndCategory(user, category)
+                .filter(word -> word.getAnswers() < 100)
+                .skip(page * offset)
+                .take(offset)
+                .collectList()
+                .flatMap(questions -> ok().body(fromObject(questions)));
     }
 }
