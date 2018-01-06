@@ -4,6 +4,7 @@ import com.datastax.driver.core.utils.UUIDs;
 import com.vings.words.WordsApplication;
 import com.vings.words.model.Word;
 import com.vings.words.model.Word.WordBuilder;
+import com.vings.words.model.quiz.Guess;
 import com.vings.words.model.quiz.Sprint;
 import com.vings.words.repository.WordsRepository;
 import org.junit.jupiter.api.AfterEach;
@@ -100,6 +101,55 @@ class QuizServletTest {
                 .expectBodyList(Sprint.class).returnResult().getResponseBody();
 
         assertThat(sprints).isEmpty();
+    }
+
+    @Test
+    void getGuessQuestions() {
+        wordsRepository.saveAll(words).blockLast();
+
+        List<Guess> guessList = client.get().uri("/quiz/guess/{user}/{category}/{page}/{offset}", user, category1, 0, 10).exchange()
+                .expectStatus().isOk()
+                .expectBodyList(Guess.class).returnResult().getResponseBody();
+
+        assertThat(guessList).hasSize(3);
+        assertThat(guessList).extracting("word").containsExactly("Reactive", "Reactor", "Tangos");
+        assertThat(guessList).extracting("answers").isNotNull();
+        assertThat(guessList).extracting("correct").isNotNull();
+    }
+
+    @Test
+    void getGuessQuestionsWithOffset() {
+        wordsRepository.saveAll(words).blockLast();
+
+        List<Guess> guessList = client.get().uri("/quiz/guess/{user}/{category}/{page}/{offset}", user, category1, 1, 2).exchange()
+                .expectStatus().isOk()
+                .expectBodyList(Guess.class).returnResult().getResponseBody();
+
+        assertThat(guessList).hasSize(1);
+        assertThat(guessList).extracting("word").containsExactly("Tangos");
+        assertThat(guessList).extracting("answers").isNotNull();
+        assertThat(guessList).extracting("correct").isNotNull();
+    }
+
+    @Test
+    void badRequestWhenGetGuessQuestionsWithInvalidCategoryUUID() {
+        wordsRepository.saveAll(words).blockLast();
+
+        String notValidCategoryUUID = "notValidCategoryUUID";
+        client.get().uri("/quiz/guess/{user}/{category}/{page}/{offset}", user, notValidCategoryUUID, 1, 2).exchange()
+                .expectStatus().isBadRequest();
+    }
+
+    @Test
+    void getGuessQuestionsWhenUserDoesNotExist() {
+        wordsRepository.saveAll(words).blockLast();
+
+        String notExistingUser = "notExistingUser";
+        List<Guess> guessList = client.get().uri("/quiz/guess/{user}/{category}/{page}/{offset}", notExistingUser, category1, 1, 2).exchange()
+                .expectStatus().isOk()
+                .expectBodyList(Guess.class).returnResult().getResponseBody();
+
+        assertThat(guessList).isEmpty();
     }
 
 }
