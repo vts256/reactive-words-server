@@ -1,6 +1,7 @@
 package com.vings.words.handlers;
 
 import com.vings.words.model.Word;
+import com.vings.words.model.quiz.Crossword;
 import com.vings.words.model.quiz.Guess;
 import com.vings.words.model.quiz.Sprint;
 import com.vings.words.repository.WordsRepository;
@@ -58,8 +59,16 @@ public class QuizHandler {
 
     public Mono<ServerResponse> crossword(ServerRequest serverRequest) {
         String user = serverRequest.pathVariable(USER);
-        String category = serverRequest.pathVariable(CATEGORY);
-        return Mono.empty();
+        UUID category = UUID.fromString(serverRequest.pathVariable(CATEGORY));
+        int page = Integer.parseInt(serverRequest.pathVariable(PAGE));
+        int offset = Integer.parseInt(serverRequest.pathVariable(OFFSET));
+        return wordsRepository.findByUserAndCategory(user, category)
+                .filter(word -> word.getAnswers() < 100)
+                .skip(page * offset)
+                .take(offset)
+                .map(word -> new Crossword(word.getWord(), findTranslation(word)))
+                .collectList()
+                .flatMap(questions -> ok().body(fromObject(questions)));
     }
 
     public Mono<ServerResponse> guess(ServerRequest serverRequest) {
