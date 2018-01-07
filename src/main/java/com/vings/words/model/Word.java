@@ -32,6 +32,8 @@ public class Word {
 
     private Link speech;
 
+    private Set<Example> examples;
+
     private Word() {
 
     }
@@ -44,6 +46,7 @@ public class Word {
         this.translation = wordBuilder.translation;
         this.image = wordBuilder.image;
         this.speech = wordBuilder.speech;
+        this.examples = wordBuilder.examples;
     }
 
     public boolean learned() {
@@ -64,6 +67,8 @@ public class Word {
         private Link image;
 
         private Link speech;
+
+        private Set<Example> examples;
 
         public WordBuilder(String user, UUID category, String word) {
             this.user = user;
@@ -88,6 +93,11 @@ public class Word {
 
         public WordBuilder withSpeech(Link speech) {
             this.speech = speech;
+            return this;
+        }
+
+        public WordBuilder withExamples(Set<Example> examples) {
+            this.examples = examples;
             return this;
         }
 

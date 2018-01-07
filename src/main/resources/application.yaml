@@ -18,5 +18,9 @@ polly:
   words:
     voice: Joanna
 
+example:
+  dictionary:
+    api: http://api.pearson.com/v2/dictionaries/ldoce5/entries?headword=
+
 cassandra:
   keyspace: words

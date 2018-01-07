@@ -7,11 +7,13 @@ import com.amazonaws.services.polly.model.SynthesizeSpeechResult;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.datastax.driver.core.utils.UUIDs;
+import com.vings.words.model.Example;
 import com.vings.words.model.Link;
 import com.vings.words.model.Word;
 import com.vings.words.parser.MultipartParser;
 import com.vings.words.parser.ObjectParser;
 import com.vings.words.repository.WordsRepository;
+import com.vings.words.service.WordExampleService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.codec.multipart.Part;
 import org.springframework.stereotype.Component;
@@ -55,16 +57,20 @@ public class DictionaryHandler {
 
     private final WordsRepository wordsRepository;
 
+    private final WordExampleService exampleService;
+
     private final MultipartParser multipartParser;
 
     private final ObjectParser objectParser;
 
-    public DictionaryHandler(WordsRepository wordsRepository, AmazonS3 s3Client, AmazonPolly pollyClient, MultipartParser multipartParser, ObjectParser objectParser) {
+    public DictionaryHandler(WordsRepository wordsRepository, AmazonS3 s3Client, AmazonPolly pollyClient,
+                             MultipartParser multipartParser, ObjectParser objectParser, WordExampleService exampleService) {
         this.wordsRepository = wordsRepository;
         this.s3Client = s3Client;
         this.pollyClient = pollyClient;
         this.multipartParser = multipartParser;
         this.objectParser = objectParser;
+        this.exampleService = exampleService;
     }
 
     public Mono<ServerResponse> getWords(ServerRequest serverRequest) {
@@ -101,7 +107,8 @@ public class DictionaryHandler {
                     Part wordPart = partsMap.get("word");
                     return multipartParser.parse(wordPart, Word.class).flatMap(data -> {
                         try {
-                            return objectParser.parse(data, Word.class).filter(elem -> elem.getUser() != null && elem.getWord() != null && elem.getCategory() != null && elem.getTranslation() != null)
+                            return objectParser.parse(data, Word.class)
+                                    .filter(elem -> elem.getUser() != null && elem.getWord() != null && elem.getCategory() != null && elem.getTranslation() != null)
                                     .flatMap(word -> wordsRepository.findByUserAndCategoryAndWord(word.getUser(), word.getCategory(), word.getWord())
                                             .flatMap(foundWords -> badRequest().body(Mono.just("Category already exists"), String.class))
                                             .switchIfEmpty(saveWord(word, partsMap)))
@@ -194,25 +201,32 @@ public class DictionaryHandler {
 
     public Mono<ServerResponse> addTranslation(ServerRequest serverRequest) {
         String user = serverRequest.pathVariable(USER);
-        String category = serverRequest.pathVariable(CATEGORY);
+        UUID category = UUID.fromString(serverRequest.pathVariable(CATEGORY));
         String word = serverRequest.pathVariable(WORD);
-        String translation = serverRequest.pathVariable(TRANSLATION);
-        return wordsRepository.findByUserAndCategoryAndWord(user, UUID.fromString(category), word)
-                .flatMap(existingWord -> ok().body(wordsRepository.addTranslation(user, UUID.fromString(category), word, new HashSet<>(Arrays.asList(translation))), Word.class))
+        Set<String> translation = new HashSet<>(Arrays.asList(serverRequest.pathVariable(TRANSLATION)));
+        return wordsRepository.findByUserAndCategoryAndWord(user, category, word)
+                .flatMap(existingWord -> ok().body(wordsRepository.addTranslation(user, category, word, translation), Word.class))
                 .switchIfEmpty(badRequest().body(Mono.just("word doesn't exists"), String.class));
 
     }
 
-    private Mono<? extends ServerResponse> saveWord(Word word, Map<String, Part> partsMap) {
+    private Mono<ServerResponse> saveWord(Word word, Map<String, Part> partsMap) {
 
         Link speech = generateSpeech(word);
         word.setSpeech(speech);
+
+        Set<Example> examples = generateExamples(word);
+        word.setExamples(examples);
 
         Part filePart = partsMap.get("image");
         return filePart == null ? ok().body(wordsRepository.save(word), Word.class) :
                 saveImage(word.getUser(), word.getWord(), filePart)
                         .flatMap(urls -> ok().body(wordsRepository.save(new Word.WordBuilder(word.getUser(), word.getCategory(), word.getWord())
                                 .withImage(urls.get(0)).withSpeech(word.getSpeech()).withTranslation(word.getTranslation()).build()), Word.class));
+    }
+
+    private Set<Example> generateExamples(Word word) {
+        return exampleService.request(word.getWord());
     }
 
     private Link generateSpeech(Word word) {
