@@ -222,7 +222,7 @@ public class DictionaryHandler {
         return filePart == null ? ok().body(wordsRepository.save(word), Word.class) :
                 saveImage(word.getUser(), word.getWord(), filePart)
                         .flatMap(urls -> ok().body(wordsRepository.save(new Word.WordBuilder(word.getUser(), word.getCategory(), word.getWord())
-                                .withImage(urls.get(0)).withSpeech(word.getSpeech()).withTranslation(word.getTranslation()).build()), Word.class));
+                                .withImage(urls.get(0)).withSpeech(word.getSpeech()).withTranslation(word.getTranslation()).withExamples(word.getExamples()).build()), Word.class));
     }
 
     private Set<Example> generateExamples(Word word) {

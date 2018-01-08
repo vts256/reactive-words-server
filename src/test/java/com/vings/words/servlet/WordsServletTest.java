@@ -180,6 +180,7 @@ class WordsServletTest {
         assertThat(actual.getImage().getUrl()).isNotEmpty();
         assertThat(actual.getSpeech()).isNotNull();
         assertThat(actual.getSpeech().getUrl()).isNotEmpty();
+        assertThat(actual.getWord()).isNotEmpty();
     }
 
     private MultiValueMap<String, Object> generateMultipartData(Word word) {
