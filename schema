@@ -6,11 +6,17 @@ translation set<text>,
 answers int,
 image frozen<Link>,
 speech frozen<Link>,
+examples set<frozen<Example>>,
 PRIMARY KEY((user, category), word));
 
 CREATE TYPE Link(
 key text,
 url text);
+
+CREATE TYPE Example (
+word text,
+definitions set<text>,
+sentences set<text>);
 
 CREATE TABLE Category(
 user text,
