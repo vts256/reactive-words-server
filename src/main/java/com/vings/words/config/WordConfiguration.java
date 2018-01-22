@@ -11,4 +11,5 @@ public class WordConfiguration {
     public RestTemplate restTemplate() {
         return new RestTemplate();
     }
+
 }

@@ -3,7 +3,8 @@ package com.vings.words.routes;
 import com.vings.words.handlers.CategoryHandler;
 import com.vings.words.handlers.DictionaryHandler;
 import com.vings.words.handlers.QuizHandler;
-import org.springframework.stereotype.Component;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.web.reactive.function.server.RouterFunction;
 import org.springframework.web.reactive.function.server.ServerResponse;
 
@@ -16,7 +17,7 @@ import static org.springframework.web.reactive.function.server.RouterFunctions.n
 import static org.springframework.web.reactive.function.server.RouterFunctions.route;
 import static org.springframework.web.reactive.function.server.ServerResponse.ok;
 
-@Component
+@Configuration
 public class WordsRoutes {
 
     private final DictionaryHandler dictionaryHandler;
@@ -29,14 +30,15 @@ public class WordsRoutes {
         this.quizHandler = quizHandler;
     }
 
+    @Bean
     public RouterFunction<ServerResponse> routingFunction() {
-        return baseRoutes()
+        return baseRoute()
                 .and(dictionaryRoutes())
                 .and(categoryRoutes())
                 .and(quizRoutes());
     }
 
-    private RouterFunction<ServerResponse> baseRoutes() {
+    private RouterFunction<ServerResponse> baseRoute() {
         return route(GET("/"), request -> ok().body(fromObject("Hello, from reactive handler;)")));
     }
 
