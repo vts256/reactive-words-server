@@ -15,6 +15,8 @@ public class ResourceServerConfiguration {
     public SecurityWebFilterChain securityWebFilterChain(ServerHttpSecurity http) {
         return http.authorizeExchange()
                 .anyExchange().authenticated()
+                .and().csrf().disable()
+                .httpBasic()
                 .and().formLogin()
                 .and().build();
     }

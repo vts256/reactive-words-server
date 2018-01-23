@@ -40,6 +40,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 import static org.springframework.http.MediaType.MULTIPART_FORM_DATA;
 import static org.springframework.http.MediaType.TEXT_PLAIN;
+import static org.springframework.web.reactive.function.client.ExchangeFilterFunctions.basicAuthentication;
 
 @ExtendWith(SpringExtension.class)
 @SpringBootTest(classes = WordsApplication.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -72,6 +73,7 @@ class WordsServletTest {
         client = WebTestClient
                 .bindToServer()
                 .baseUrl("http://localhost:" + port)
+                .filter(basicAuthentication("user1", "password"))
                 .build();
 
         when(amazonPolly.synthesizeSpeech(any(SynthesizeSpeechRequest.class))).thenReturn(mock(SynthesizeSpeechResult.class));

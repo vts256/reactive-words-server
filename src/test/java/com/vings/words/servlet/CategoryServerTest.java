@@ -4,8 +4,8 @@ import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.datastax.driver.core.utils.UUIDs;
 import com.vings.words.WordsApplication;
-import com.vings.words.model.Link;
 import com.vings.words.model.Category;
+import com.vings.words.model.Link;
 import com.vings.words.repository.CategoryRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -25,6 +25,7 @@ import org.springframework.test.web.reactive.server.WebTestClient;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.reactive.function.BodyInserters;
+import org.springframework.web.reactive.function.client.ExchangeFilterFunctions;
 import reactor.test.StepVerifier;
 
 import java.io.InputStream;
@@ -69,6 +70,7 @@ public class CategoryServerTest {
         client = WebTestClient
                 .bindToServer()
                 .baseUrl("http://localhost:" + port)
+                .filter(ExchangeFilterFunctions.basicAuthentication("user1", "password"))
                 .build();
     }
 
